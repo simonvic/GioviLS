@@ -148,27 +148,6 @@ public sealed class Environment {
 		return true;
 	}
 
-	public boolean isDeclared(
-		Map<String, Type> environment,
-		String identifier
-	) {
-		return environment.containsKey(identifier)
-			|| (parent != null && parent.isDeclaredConstant(identifier));
-	}
-
-	public Optional<Type> get(
-		Map<String, Type> environment,
-		String identifier
-	) {
-		if (environment.containsKey(identifier)) {
-			return Optional.of(environment.get(identifier));
-		}
-		if (parent == null) {
-			return Optional.empty();
-		}
-		return parent.getConstant(identifier);
-	}
-
 	public Optional<Type> lookup(String identifier) {
 		return Optional.ofNullable(variables.get(identifier))
 			.or(() -> Optional.ofNullable(constants.get(identifier)))
@@ -187,12 +166,20 @@ public sealed class Environment {
 	}
 
 	public boolean isDeclaredVariable(String identifier) {
-		return isDeclared(variables, identifier);
+		return variables.containsKey(identifier)
+			|| (parent != null && parent.isDeclaredVariable(identifier));
 	}
 
 	public Optional<Type> getVariable(String identifier) {
-		return get(variables, identifier);
+		if (variables.containsKey(identifier)) {
+			return Optional.of(variables.get(identifier));
+		}
+		if (parent == null) {
+			return Optional.empty();
+		}
+		return parent.getVariable(identifier);
 	}
+
 
 	//////////////////////////////////////////////////////////////////////////////////////////////// Constants
 
@@ -203,11 +190,18 @@ public sealed class Environment {
 	}
 
 	public boolean isDeclaredConstant(String identifier) {
-		return isDeclared(constants, identifier);
+		return constants.containsKey(identifier)
+			|| (parent != null && parent.isDeclaredConstant(identifier));
 	}
 
 	public Optional<Type> getConstant(String identifier) {
-		return get(constants, identifier);
+		if (constants.containsKey(identifier)) {
+			return Optional.of(constants.get(identifier));
+		}
+		if (parent == null) {
+			return Optional.empty();
+		}
+		return parent.getConstant(identifier);
 	}
 
 	//////////////////////////////////////////////////////////////////////////////////////////////// Functions
@@ -219,11 +213,18 @@ public sealed class Environment {
 	}
 
 	public boolean isDeclaredFunction(String identifier) {
-		return isDeclared(functions, identifier);
+		return functions.containsKey(identifier)
+			|| (parent != null && parent.isDeclaredFunction(identifier));
 	}
 
 	public Optional<Type> getFunction(String identifier) {
-		return get(functions, identifier);
+		if (functions.containsKey(identifier)) {
+			return Optional.of(functions.get(identifier));
+		}
+		if (parent == null) {
+			return Optional.empty();
+		}
+		return parent.getFunction(identifier);
 	}
 
 	//////////////////////////////////////////////////////////////////////////////////////////////// Types
@@ -237,7 +238,8 @@ public sealed class Environment {
 	}
 
 	public boolean isDeclaredType(String identifier) {
-		return isDeclared(types, identifier);
+		return types.containsKey(identifier)
+			|| (parent != null && parent.isDeclaredType(identifier));
 	}
 
 	public Optional<Type> getType(String identifier) {
@@ -247,7 +249,15 @@ public sealed class Environment {
 			case "Real" -> Optional.of(Type.REAL);
 			case "Bool" -> Optional.of(Type.BOOL);
 			case "Text" -> Optional.of(Type.TEXT);
-			default -> get(types, identifier);
+			default -> {
+				if (types.containsKey(identifier)) {
+					yield Optional.of(types.get(identifier));
+				}
+				if (parent == null) {
+					yield Optional.empty();
+				}
+				yield parent.getType(identifier);
+			}
 		};
 	}
 
@@ -260,11 +270,18 @@ public sealed class Environment {
 	}
 
 	public boolean isDeclaredModule(String identifier) {
-		return isDeclared(modules, identifier);
+		return modules.containsKey(identifier)
+			|| (parent != null && parent.isDeclaredModule(identifier));
 	}
 
 	public Optional<Type> getModule(String identifier) {
-		return get(modules, identifier);
+		if (modules.containsKey(identifier)) {
+			return Optional.of(modules.get(identifier));
+		}
+		if (parent == null) {
+			return Optional.empty();
+		}
+		return parent.getModule(identifier);
 	}
 
 }
