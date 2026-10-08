@@ -1,0 +1,3 @@
+[submodule "GioviSpecs"]
+	path = GioviSpecs
+	url = git@github.com:simonvic/GioviSpecs.git
