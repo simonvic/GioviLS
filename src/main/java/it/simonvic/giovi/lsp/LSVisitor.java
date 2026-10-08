@@ -245,7 +245,15 @@ public class LSVisitor extends GioviParserBaseVisitor<LSVisitResult> {
 		}
 		var type = new TypeFunction(identifier, returnType, parameters);
 		getCurrentEnv().declareFunction(identifier, type);
+		enterFunctionScope(ctx.body);
+		for (int i = 0; i < parameters.length; i++) {
+			var param = parameters[i];
+			getCurrentEnv().declareVariable(param.identifier(), param.type());
+		}
+		visitBlock(ctx.body);
+		exitScope();
 		return type;
+
 	}
 
 	@Override
