@@ -228,6 +228,8 @@ public sealed interface LSVisitResult {
 
 			public static record TypeMap(Type key, Type val) implements TypeCollection {
 
+				public static final TypeMap VOID_VOID = new TypeMap(Type.VOID, Type.VOID);
+
 				@Override
 				public String toString() {
 					return "[" + key + "=>" + val + "]";

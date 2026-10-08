@@ -598,14 +598,55 @@ public class LSVisitor extends GioviParserBaseVisitor<LSVisitResult> {
 					+ "\n\tbut got:\t" + next
 			);
 		}
-		return new TypeList(inferred);
+		return new TypeList((inferred == null) ? Type.VOID : inferred);
 	}
 
 	@Override
 	public TypeMap visitMapCreation(MapCreationContext ctx) {
-		// TODO: ...
-		return new TypeMap(Type.VOID, Type.VOID);
-
+		if (ctx.mapEntries() == null || ctx.mapEntries().mapEntry() == null)
+			return TypeMap.VOID_VOID;
+		Type inferredKey = null;
+		Type nextKey;
+		Type inferredVal = null;
+		Type nextVal;
+		for (var entry : ctx.mapEntries().mapEntry()) {
+			nextKey = visitExpression(entry.mapKey);
+			if (inferredKey == null) {
+				inferredKey = nextKey;
+			} else {
+				if (!nextKey.equals(inferredKey) && !nextKey.isNarrower(inferredKey)) {
+					if (inferredKey.isNarrower(nextKey)) {
+						inferredKey = nextKey;
+					} else {
+						addDiagErr(
+							entry,
+							"Impossible to infer widest key type.\n\tExpecting:\t" + inferredKey
+								+ "\n\tbut got:\t" + nextKey
+						);
+					}
+				}
+			}
+			nextVal = visitExpression(entry.mapValue);
+			if (inferredVal == null) {
+				inferredVal = nextVal;
+			} else {
+				if (!nextVal.equals(inferredVal) && !nextVal.isNarrower(inferredVal)) {
+					if (inferredVal.isNarrower(nextVal)) {
+						inferredVal = nextVal;
+					} else {
+						addDiagErr(
+							entry,
+							"Impossible to infer widest value type.\n\tExpecting:\t" + inferredVal
+								+ "\n\tbut got:\t" + nextVal
+						);
+					}
+				}
+			}
+		}
+		return new TypeMap(
+			(inferredKey == null) ? Type.VOID : inferredKey,
+			(inferredVal == null) ? Type.VOID : inferredVal
+		);
 	}
 
 	@Override
