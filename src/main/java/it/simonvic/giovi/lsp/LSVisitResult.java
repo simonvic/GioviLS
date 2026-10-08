@@ -1,5 +1,7 @@
 package it.simonvic.giovi.lsp;
 
+import java.util.Arrays;
+
 import it.simonvic.giovi.lsp.LSVisitResult.Type.TypePrimitive.TypeBool;
 import it.simonvic.giovi.lsp.LSVisitResult.Type.TypePrimitive.TypeNumber.TypeInt;
 import it.simonvic.giovi.lsp.LSVisitResult.Type.TypePrimitive.TypeNumber.TypeNatural;
@@ -32,26 +34,79 @@ public sealed interface LSVisitResult {
 		}
 
 		public static record TypeAny() implements Type {
+
+			@Override
+			public String toString() {
+				return "Any";
+			}
+
 		}
 
 		public static record TypeSelf() implements Type {
+
+			@Override
+			public String toString() {
+				return "Self";
+			}
+
 		}
 
 		public static record TypeType() implements Type {
+
+			@Override
+			public String toString() {
+				return "Type";
+			}
+
 		}
 
-		public static record TypeFunction(FunctionSignature signauture) implements Type {
+		public static record TypeFunction(FunctionSignature signature) implements Type {
+
+			@Override
+			public String toString() {
+				return "function" + signature.toString();
+			}
 
 			public static record FunctionSignature(
 				String identifier,
 				Type returnType,
-				Type... paramsTypes
+				Type... parameters
 			) {
+
+				@Override
+				public String toString() {
+					var sb = new StringBuilder(identifier);
+					sb.append('(');
+					var i = Arrays.asList(parameters).iterator();
+					if (!i.hasNext()) {
+						sb.append(')');
+					} else {
+						while (true) {
+							var param = i.next();
+							sb.append(param.toString());
+							if (!i.hasNext()) {
+								sb.append(')');
+								break;
+							}
+							sb.append(",");
+						}
+					}
+					sb.append("=>");
+					sb.append(returnType);
+					return sb.toString();
+				}
+
 			}
 
 		}
 
 		public static record TypeModule(Environment module) implements Type {
+
+			@Override
+			public String toString() {
+				return "Module";
+			}
+
 		}
 
 		public static record TypeRange(Type type) implements Type {
@@ -62,11 +117,21 @@ public sealed interface LSVisitResult {
 			public static final TypeRange INT = new TypeRange(Type.INT);
 			public static final TypeRange REAL = new TypeRange(Type.REAL);
 
+			@Override
+			public String toString() {
+				return "Range{" + type + "}";
+			}
+
 		}
 
 		public static sealed interface TypePrimitive extends Type {
 
 			public static record TypeVoid() implements TypePrimitive {
+
+				@Override
+				public String toString() {
+					return "Void";
+				}
 
 				@Override
 				public boolean isNarrower(Type other) {
@@ -76,14 +141,31 @@ public sealed interface LSVisitResult {
 			}
 
 			public static record TypeBool() implements TypePrimitive {
+
+				@Override
+				public String toString() {
+					return "Bool";
+				}
+
 			}
 
 			public static record TypeText() implements TypePrimitive {
+
+				@Override
+				public String toString() {
+					return "Text";
+				}
+
 			}
 
 			public static sealed interface TypeNumber extends TypePrimitive {
 
 				public static record TypeNatural() implements TypeNumber {
+
+					@Override
+					public String toString() {
+						return "Natural";
+					}
 
 					@Override
 					public boolean isNarrower(Type other) {
@@ -98,6 +180,11 @@ public sealed interface LSVisitResult {
 				public static record TypeInt() implements TypeNumber {
 
 					@Override
+					public String toString() {
+						return "Int";
+					}
+
+					@Override
 					public boolean isNarrower(Type other) {
 						return switch (other) {
 							case TypeInt _,TypeReal _ -> true;
@@ -109,6 +196,12 @@ public sealed interface LSVisitResult {
 				}
 
 				public static record TypeReal() implements TypeNumber {
+
+					@Override
+					public String toString() {
+						return "Real";
+					}
+
 				}
 
 			}
@@ -118,6 +211,11 @@ public sealed interface LSVisitResult {
 		public static sealed interface TypeCollection extends Type {
 
 			public static record TypeList(Type val) implements TypeCollection {
+
+				@Override
+				public String toString() {
+					return "[" + val + "]";
+				}
 
 				@Override
 				public boolean isNarrower(Type other) {
@@ -130,6 +228,11 @@ public sealed interface LSVisitResult {
 			}
 
 			public static record TypeMap(Type key, Type val) implements TypeCollection {
+
+				@Override
+				public String toString() {
+					return "[" + key + "=>" + val + "]";
+				}
 
 				@Override
 				public boolean isNarrower(Type other) {
@@ -145,7 +248,21 @@ public sealed interface LSVisitResult {
 
 		public static sealed interface TypeProduct extends Type {
 
-			public static record TypeTuple() implements TypeProduct {
+			public static record TypeTuple(Type... fields) implements TypeProduct {
+
+				@Override
+				public String toString() {
+					if (fields.length == 0) return "<>";
+					var sb = new StringBuilder("<");
+					for (int i = 0; i < fields.length - 1; i++) {
+						sb.append(fields[i]);
+						sb.append(",");
+					}
+					sb.append(fields[fields.length - 1]);
+					sb.append(">");
+					return sb.toString();
+				}
+
 			}
 
 			public static record TypeRecord() implements TypeProduct {

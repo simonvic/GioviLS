@@ -4,7 +4,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.antlr.v4.runtime.ParserRuleContext;
-import org.eclipse.lsp4j.*;
+import org.eclipse.lsp4j.Diagnostic;
+import org.eclipse.lsp4j.DiagnosticSeverity;
+import org.eclipse.lsp4j.Range;
 
 import it.simonvic.giovi.antlr.GioviParser.*;
 import it.simonvic.giovi.antlr.GioviParserBaseVisitor;
@@ -74,7 +76,7 @@ public class LSVisitor extends GioviParserBaseVisitor<LSVisitResult> {
 	}
 
 
-	////////////////////////////////////////////////
+	///////////////////////////////////////////////
 
 	@Override
 	public Nothing visitImportStatement(ImportStatementContext ctx) {
@@ -95,7 +97,7 @@ public class LSVisitor extends GioviParserBaseVisitor<LSVisitResult> {
 		return NOTHING;
 	}
 
-	////////////////////////////////////////////////
+	///////////////////////////////////////////////
 
 	@Override
 	public Nothing visitAliasStatement(AliasStatementContext ctx) {
@@ -118,7 +120,7 @@ public class LSVisitor extends GioviParserBaseVisitor<LSVisitResult> {
 	}
 
 
-	////////////////////////////////////////////////
+	///////////////////////////////////////////////
 
 
 	@Override
@@ -241,7 +243,7 @@ public class LSVisitor extends GioviParserBaseVisitor<LSVisitResult> {
 
 	private Type doVisitInvocation(Type invoked) throws Exception {
 		if (invoked instanceof TypeFunction function) {
-			return function.signauture().returnType();
+			return function.signature().returnType();
 		} else {
 			throw new Exception("Can't invoke a non-function: " + invoked);
 		}
@@ -284,6 +286,23 @@ public class LSVisitor extends GioviParserBaseVisitor<LSVisitResult> {
 	@Override
 	public TypeMap visitTypeMap(TypeMapContext ctx) {
 		return new TypeMap(visitType(ctx.mapKeyType), visitType(ctx.mapValueType));
+	}
+
+	@Override
+	public TypeTuple visitTypeTuple(TypeTupleContext ctx) {
+		if (ctx.typeTupleEntry() == null) {
+			return new TypeTuple();
+		}
+		var types = new Type[ctx.typeTupleEntry().size()];
+		for (int i = 0; i < types.length; i++) {
+			types[i] = visitType(ctx.typeTupleEntry(i).type());
+		}
+		return new TypeTuple(types);
+	}
+
+	@Override
+	public LSVisitResult visitTypeRecord(TypeRecordContext ctx) {
+		return super.visitTypeRecord(ctx);
 	}
 
 	@Override
