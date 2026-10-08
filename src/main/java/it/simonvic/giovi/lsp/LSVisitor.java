@@ -118,6 +118,7 @@ public class LSVisitor extends GioviParserBaseVisitor<LSVisitResult> {
 		switch (expressionType) {
 			case TypeFunction t -> env.declareFunction(alias, t);
 			case TypeType t -> env.declareType(alias, t);
+			case TypeProduct t -> env.declareType(alias, t);
 			case TypeModule t -> env.declareModule(alias, t);
 			// TODO: vars and consts
 			default -> addDiagErr(ctx.expression(), "Can't create an alias for " + expressionType);
