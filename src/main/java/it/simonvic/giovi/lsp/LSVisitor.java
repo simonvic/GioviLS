@@ -1,7 +1,6 @@
 package it.simonvic.giovi.lsp;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 import org.antlr.v4.runtime.ParserRuleContext;
@@ -19,6 +18,7 @@ import it.simonvic.giovi.lsp.LSVisitResult.Type;
 import it.simonvic.giovi.lsp.LSVisitResult.Type.*;
 import it.simonvic.giovi.lsp.LSVisitResult.Type.TypeCollection.TypeList;
 import it.simonvic.giovi.lsp.LSVisitResult.Type.TypeCollection.TypeMap;
+import it.simonvic.giovi.lsp.LSVisitResult.Type.TypeFunction.Param;
 import it.simonvic.giovi.lsp.LSVisitResult.Type.TypePrimitive.TypeBool;
 import it.simonvic.giovi.lsp.LSVisitResult.Type.TypePrimitive.TypeNumber.TypeInt;
 import it.simonvic.giovi.lsp.LSVisitResult.Type.TypePrimitive.TypeNumber.TypeNatural;
@@ -165,10 +165,10 @@ public class LSVisitor extends GioviParserBaseVisitor<LSVisitResult> {
 	}
 
 	@Override
-	public Nothing visitConstantDeclaration(ConstantDeclarationContext ctx) {
+	public Type visitConstantDeclaration(ConstantDeclarationContext ctx) {
 		Type declaredType = visitType(ctx.type());
 		Type initExpressionType = visitExpression(ctx.value);
-		Type widestType;
+		Type widestType = Type.VOID;
 		try {
 			widestType = widestOf(declaredType, initExpressionType);
 			if (!getCurrentEnv().declareConstant(ctx.identifier().getText(), widestType)) {
@@ -180,19 +180,72 @@ public class LSVisitor extends GioviParserBaseVisitor<LSVisitResult> {
 		} catch (Exception e) {
 			addDiag(ctx, "Can't infer type.\n" + e.getMessage());
 		}
-		return NOTHING;
+		return widestType;
 	}
 
 	@Override
-	public Nothing visitStructDefinition(StructDefinitionContext ctx) {
-		// TODO: ...
-		return NOTHING;
+	public TypeStruct visitStructDefinition(StructDefinitionContext ctx) {
+		// TODO: aggregates
+		String typename = ctx.typename.getText();
+		var bodyCtx = ctx.structBodyDefinition();
+
+		var fieldsCtxs = bodyCtx.fieldDeclaration();
+		var fields = new RecordField[(fieldsCtxs == null) ? 0 : fieldsCtxs.size()];
+		for (int i = 0; i < fields.length; i++) {
+			var fieldCtx = fieldsCtxs.get(i);
+			fields[i] = new RecordField(
+				fieldCtx.identifier().getText(),
+				visitType(fieldCtx.type())
+			);
+		}
+
+		var constsCtxs = bodyCtx.constantDeclaration();
+		var constants = new RecordField[(constsCtxs == null) ? 0 : constsCtxs.size()];
+		for (int i = 0; i < constants.length; i++) {
+			var constCtx = constsCtxs.get(i);
+			constants[i] = new RecordField(
+				constCtx.identifier().getText(),
+				visitType(constCtx.type())
+			);
+		}
+
+		var funcsCtx = bodyCtx.functionDeclaration();
+		var functions = new TypeFunction[(funcsCtx == null) ? 0 : funcsCtx.size()];
+		for (int i = 0; i < functions.length; i++) {
+			functions[i] = visitFunctionDeclaration(funcsCtx.get(i));
+		}
+
+		var type = new TypeStruct(
+			typename,
+			fields,
+			constants,
+			functions
+		);
+		getCurrentEnv().declareType(typename, type);
+		return type;
 	}
 
 	@Override
-	public Nothing visitFunctionDeclaration(FunctionDeclarationContext ctx) {
-		// TODO: ...
-		return NOTHING;
+	public TypeFunction visitFunctionDeclaration(FunctionDeclarationContext ctx) {
+		var signatureCtx = ctx.functionSignature();
+		String identifier = signatureCtx.identifier().getText();
+		var anonSignatureCtx = signatureCtx.anonFunctionSignature();
+		var returnType = (anonSignatureCtx.returnType == null)
+			? Type.VOID
+			: visitType(anonSignatureCtx.returnType);
+		var paramsCtxs = anonSignatureCtx.formalParameters().formalParameter();
+		var parameters = new Param[(paramsCtxs == null) ? 0 : paramsCtxs.size()];
+		for (int i = 0; i < parameters.length; i++) {
+			var paramCtx = paramsCtxs.get(i);
+			String name = paramCtx.name.getText();
+			var type = visitType(paramCtx.type());
+			parameters[i] = (paramCtx.label != null)
+				? new Param(paramCtx.label.getText(), name, type)
+				: new Param(name, type);
+		}
+		var type = new TypeFunction(identifier, returnType, parameters);
+		getCurrentEnv().declareFunction(identifier, type);
+		return type;
 	}
 
 	@Override

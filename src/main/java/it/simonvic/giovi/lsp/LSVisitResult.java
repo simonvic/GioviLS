@@ -63,27 +63,33 @@ public sealed interface LSVisitResult {
 		public static record TypeFunction(
 			String identifier,
 			Type returnType,
-			Type... parameters
+			Param... parameters
 		) implements Type {
+
+			public static record Param(String label, String identifier, Type type) {
+
+				public Param(String identifier, Type type) {
+					this(identifier, identifier, type);
+				}
+
+				@Override
+				public String toString() {
+					return (label.equals(identifier))
+						? identifier + " " + type
+						: label + ":" + identifier + " " + type;
+				}
+
+			}
 
 			@Override
 			public String toString() {
 				var sb = new StringBuilder(identifier);
 				sb.append('(');
-				var i = Arrays.asList(parameters).iterator();
-				if (!i.hasNext()) {
-					sb.append(')');
-				} else {
-					while (true) {
-						var param = i.next();
-						sb.append(param.toString());
-						if (!i.hasNext()) {
-							sb.append(')');
-							break;
-						}
-						sb.append(",");
-					}
+				for (int i = 0; i < parameters.length; i++) {
+					sb.append(parameters[i]);
+					sb.append(",");
 				}
+				sb.append(')');
 				sb.append("=>");
 				sb.append(returnType);
 				return sb.toString();
@@ -281,7 +287,7 @@ public sealed interface LSVisitResult {
 			}
 
 			public static record TypeStruct(
-				String identifier,
+				String typename,
 				RecordField[] fields,
 				RecordField[] constants,
 				TypeFunction[] functions
@@ -307,8 +313,8 @@ public sealed interface LSVisitResult {
 
 				@Override
 				public String toString() {
-					if (fields.length == 0) return identifier + "<>";
-					var sb = new StringBuilder(identifier + "<");
+					if (fields.length == 0) return typename + "<>";
+					var sb = new StringBuilder(typename + "<");
 					for (int i = 0; i < fields.length; i++) {
 						sb.append(fields[i]);
 						sb.append(",");
