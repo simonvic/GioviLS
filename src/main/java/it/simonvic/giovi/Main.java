@@ -1,4 +1,4 @@
-package it.simonvic;
+package it.simonvic.giovi;
 
 import java.io.IOException;
 import java.util.concurrent.ExecutionException;
