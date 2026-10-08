@@ -221,7 +221,9 @@ public class LSVisitor extends GioviParserBaseVisitor<LSVisitResult> {
 			constants,
 			functions
 		);
-		getCurrentEnv().declareType(typename, type);
+		if (!getCurrentEnv().declareType(typename, type)) {
+			addDiag(ctx, "Type already declared with name " + typename);
+		}
 		return type;
 	}
 
@@ -244,11 +246,18 @@ public class LSVisitor extends GioviParserBaseVisitor<LSVisitResult> {
 				: new Param(name, type);
 		}
 		var type = new TypeFunction(identifier, returnType, parameters);
-		getCurrentEnv().declareFunction(identifier, type);
+		if (!getCurrentEnv().declareFunction(identifier, type)) {
+			addDiag(ctx, "Function already declared with name " + identifier);
+		}
 		enterFunctionScope(ctx.body);
 		for (int i = 0; i < parameters.length; i++) {
 			var param = parameters[i];
-			getCurrentEnv().declareVariable(param.identifier(), param.type());
+			if (!getCurrentEnv().declareVariable(param.identifier(), param.type())) {
+				addDiag(
+					paramsCtxs.get(i),
+					"Parameter already declared with name " + param.identifier()
+				);
+			}
 		}
 		visitBlock(ctx.body);
 		exitScope();
