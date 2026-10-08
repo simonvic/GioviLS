@@ -4,9 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.antlr.v4.runtime.ParserRuleContext;
-import org.eclipse.lsp4j.Diagnostic;
-import org.eclipse.lsp4j.DiagnosticSeverity;
-import org.eclipse.lsp4j.Range;
+import org.eclipse.lsp4j.*;
 
 import it.simonvic.giovi.antlr.GioviParser.*;
 import it.simonvic.giovi.antlr.GioviParserBaseVisitor;
@@ -36,6 +34,7 @@ public class LSVisitor extends GioviParserBaseVisitor<LSVisitResult> {
 	private static final TypeAny ANY = new TypeAny();
 
 	private final List<Diagnostic> diagnostics = new ArrayList<>();
+	private final List<InlayHint> inlayHints = new ArrayList<>();
 
 	private Environment env;
 	private final Environment rootEnv;
@@ -47,6 +46,10 @@ public class LSVisitor extends GioviParserBaseVisitor<LSVisitResult> {
 
 	public List<Diagnostic> getDiagnostics() {
 		return diagnostics;
+	}
+
+	public List<InlayHint> getInlayHints() {
+		return inlayHints;
 	}
 
 	public Environment getRootEnv() {
@@ -75,6 +78,18 @@ public class LSVisitor extends GioviParserBaseVisitor<LSVisitResult> {
 
 	private void exitScope() {
 		setCurrentEnv(getCurrentEnv().parent());
+	}
+
+	private void addTypeInlayHint(Type widestType, IdentifierContext ctx) {
+		var inlayHint = new InlayHint();
+		inlayHint.setKind(InlayHintKind.Type);
+		inlayHint.setLabel(switch (widestType) {
+			case TypeStruct t -> t.typename();
+			default -> widestType.toString();
+		});
+		inlayHint.setPosition(LSPUtils.endPositionOf(ctx));
+		inlayHint.setPaddingLeft(true);
+		inlayHints.add(inlayHint);
 	}
 
 	private void addDiag(DiagnosticSeverity severity, ParserRuleContext ctx, String message) {
@@ -177,11 +192,16 @@ public class LSVisitor extends GioviParserBaseVisitor<LSVisitResult> {
 
 	@Override
 	public Type visitConstantDeclaration(ConstantDeclarationContext ctx) {
-		Type declaredType = visitType(ctx.type());
+		Type declaredType = (ctx.type() == null)
+			? Type.VOID
+			: visitType(ctx.type());
 		Type initExpressionType = visitExpression(ctx.value);
 		Type widestType = Type.VOID;
 		try {
 			widestType = widestOf(declaredType, initExpressionType);
+			if (ctx.type() == null) {
+				addTypeInlayHint(widestType, ctx.identifier());
+			}
 			if (!getCurrentEnv().declareConstant(ctx.identifier().getText(), widestType)) {
 				addDiagErr(
 					ctx.identifier(),
@@ -409,6 +429,9 @@ public class LSVisitor extends GioviParserBaseVisitor<LSVisitResult> {
 		Type widestType;
 		try {
 			widestType = widestOf(declaredType, defaultExpressionType, initExpressionType);
+			if (ctx.type() == null) {
+				addTypeInlayHint(widestType, ctx.identifier());
+			}
 			if (!getCurrentEnv().declareVariable(ctx.identifier().getText(), widestType)) {
 				addDiagErr(
 					ctx.identifier(),

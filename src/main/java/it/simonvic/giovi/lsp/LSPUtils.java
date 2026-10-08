@@ -23,6 +23,7 @@ import it.simonvic.giovi.antlr.GioviExtendedLexer;
 import it.simonvic.giovi.antlr.GioviExtendedParser;
 import it.simonvic.giovi.antlr.GioviLexer;
 import it.simonvic.giovi.antlr.GioviParser;
+import it.simonvic.giovi.antlr.GioviParser.IdentifierContext;
 
 public class LSPUtils {
 
@@ -76,6 +77,18 @@ public class LSPUtils {
 		return (x.getLine() != y.getLine())
 			? x.getLine() - y.getLine()
 			: x.getCharacter() - y.getCharacter();
+	}
+
+	/**
+	 * Get ending position
+	 * @param ctx
+	 * @return
+	 */
+	public static Position endPositionOf(IdentifierContext ctx) {
+		return new Position(
+			ctx.getStop().getLine() - 1,
+			ctx.getStop().getCharPositionInLine() + ctx.getText().length()
+		);
 	}
 
 	/**

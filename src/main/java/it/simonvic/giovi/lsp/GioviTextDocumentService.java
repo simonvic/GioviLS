@@ -236,9 +236,9 @@ public class GioviTextDocumentService implements TextDocumentService {
 	public CompletableFuture<List<InlayHint>> inlayHint(InlayHintParams params) {
 		log.info("inlayHint()");
 		return CompletableFutures.computeAsync(_ -> {
-			return List.of(
-				new InlayHint(new Position(0, 0), Either.forLeft("This is a sample inlay hint"))
-			);
+			return documents.get(params.getTextDocument().getUri())
+				.getVisitor()
+				.getInlayHints();
 		});
 	}
 
