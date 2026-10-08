@@ -572,8 +572,33 @@ public class LSVisitor extends GioviParserBaseVisitor<LSVisitResult> {
 
 	@Override
 	public TypeList visitListCreation(ListCreationContext ctx) {
-		// TODO: ...
-		return new TypeList(Type.VOID);
+		if (ctx.listEntries().listEntry() == null) return TypeList.VOID;
+		Type inferred = null;
+		Type next;
+		for (var entry : ctx.listEntries().listEntry()) {
+			next = switch (entry.getChild(0)) {
+				case RangeContext rangeCtx -> visitRange(rangeCtx).type();
+				case ExpressionContext exprCtx -> visitExpression(exprCtx);
+				default -> null; // unreachable
+			};
+			if (inferred == null) {
+				inferred = next;
+				continue;
+			}
+			if (next.equals(inferred) || next.isNarrower(inferred)) {
+				continue;
+			}
+			if (inferred.isNarrower(next)) {
+				inferred = next;
+				continue;
+			}
+			addDiagErr(
+				entry,
+				"Impossible to infer widest type.\n\tExpecting:\t" + inferred
+					+ "\n\tbut got:\t" + next
+			);
+		}
+		return new TypeList(inferred);
 	}
 
 	@Override

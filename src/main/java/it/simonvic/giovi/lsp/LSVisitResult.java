@@ -209,6 +209,8 @@ public sealed interface LSVisitResult {
 
 			public static record TypeList(Type val) implements TypeCollection {
 
+				public static final TypeList VOID = new TypeList(Type.VOID);
+
 				@Override
 				public String toString() {
 					return "[" + val + "]";
