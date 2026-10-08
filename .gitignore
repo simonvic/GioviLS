@@ -1,0 +1,11 @@
+.classpath
+.project
+.settings
+.git
+.idea
+target
+out
+src/main/antlr4/GioviLexer.g4
+src/main/antlr4/GioviParser.g4
+src/main/java/it/simonvic/giovi/antlr
+src/main/resources/sample.giovi
