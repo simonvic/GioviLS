@@ -5,7 +5,6 @@ import java.util.List;
 
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.tree.ParseTree;
-import org.eclipse.lsp4j.CodeAction;
 import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.DocumentSymbol;
 import org.eclipse.lsp4j.Position;
@@ -18,7 +17,6 @@ public class GioviDocument {
 	private boolean dirtyAST = true;
 	private ParseTree ast;
 	private List<Diagnostic> diagnostics = new ArrayList<>();
-	private List<CodeAction> codeActions = new ArrayList<>();
 	private List<DocumentSymbol> symbols = new ArrayList<>();
 	private LSVisitor visitor;
 
@@ -87,13 +85,6 @@ public class GioviDocument {
 		return diagnostics;
 	}
 
-	public List<CodeAction> getCodeActions() {
-		if (dirtyAST) {
-			updateAST();
-		}
-		return codeActions;
-	}
-
 	public void updateAST() {
 		var parser = LSPUtils.parserFrom(content);
 		var syntaxErrorsListener = new SyntaxErrorListener();
@@ -117,9 +108,6 @@ public class GioviDocument {
 		visitor = new LSVisitor(range);
 		visitor.visit(ast);
 		diagnostics.addAll(visitor.getDiagnostics());
-
-		codeActions = new ArrayList<>();
-		codeActions.addAll(visitor.getCodeActions());
 
 		symbols = new ArrayList<>();
 		symbols.addAll(symbolsListener.getSymbols());

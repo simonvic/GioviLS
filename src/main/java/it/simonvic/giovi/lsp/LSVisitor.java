@@ -32,8 +32,6 @@ public class LSVisitor extends GioviParserBaseVisitor<LSVisitResult> {
 	private static final TypeAny ANY = new TypeAny();
 
 	private final List<Diagnostic> diagnostics = new ArrayList<>();
-	private final List<CodeAction> codeActions = new ArrayList<>();
-	private final List<DocumentSymbol> symbols = new ArrayList<>();
 
 	private Environment env;
 	private final Environment rootEnv;
@@ -45,14 +43,6 @@ public class LSVisitor extends GioviParserBaseVisitor<LSVisitResult> {
 
 	public List<Diagnostic> getDiagnostics() {
 		return diagnostics;
-	}
-
-	public List<CodeAction> getCodeActions() {
-		return codeActions;
-	}
-
-	public List<DocumentSymbol> getSymbols() {
-		return symbols;
 	}
 
 	public Environment getRootEnv() {
