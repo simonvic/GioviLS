@@ -60,42 +60,33 @@ public sealed interface LSVisitResult {
 
 		}
 
-		public static record TypeFunction(FunctionSignature signature) implements Type {
+		public static record TypeFunction(
+			String identifier,
+			Type returnType,
+			Type... parameters
+		) implements Type {
 
 			@Override
 			public String toString() {
-				return "function" + signature.toString();
-			}
-
-			public static record FunctionSignature(
-				String identifier,
-				Type returnType,
-				Type... parameters
-			) {
-
-				@Override
-				public String toString() {
-					var sb = new StringBuilder(identifier);
-					sb.append('(');
-					var i = Arrays.asList(parameters).iterator();
-					if (!i.hasNext()) {
-						sb.append(')');
-					} else {
-						while (true) {
-							var param = i.next();
-							sb.append(param.toString());
-							if (!i.hasNext()) {
-								sb.append(')');
-								break;
-							}
-							sb.append(",");
+				var sb = new StringBuilder(identifier);
+				sb.append('(');
+				var i = Arrays.asList(parameters).iterator();
+				if (!i.hasNext()) {
+					sb.append(')');
+				} else {
+					while (true) {
+						var param = i.next();
+						sb.append(param.toString());
+						if (!i.hasNext()) {
+							sb.append(')');
+							break;
 						}
+						sb.append(",");
 					}
-					sb.append("=>");
-					sb.append(returnType);
-					return sb.toString();
 				}
-
+				sb.append("=>");
+				sb.append(returnType);
+				return sb.toString();
 			}
 
 		}
@@ -254,21 +245,78 @@ public sealed interface LSVisitResult {
 				public String toString() {
 					if (fields.length == 0) return "<>";
 					var sb = new StringBuilder("<");
-					for (int i = 0; i < fields.length - 1; i++) {
+					for (int i = 0; i < fields.length; i++) {
 						sb.append(fields[i]);
 						sb.append(",");
 					}
-					sb.append(fields[fields.length - 1]);
 					sb.append(">");
 					return sb.toString();
 				}
 
 			}
 
-			public static record TypeRecord() implements TypeProduct {
+			public static record RecordField(String identifier, Type type) {
+
+				@Override
+				public String toString() {
+					return identifier + " " + type;
+				}
+
 			}
 
-			public static record TypeStruct() implements TypeProduct {
+			public static record TypeRecord(RecordField... fields) implements TypeProduct {
+
+				@Override
+				public String toString() {
+					if (fields.length == 0) return "<>";
+					var sb = new StringBuilder("<");
+					for (int i = 0; i < fields.length; i++) {
+						sb.append(fields[i]);
+						sb.append(",");
+					}
+					sb.append(">");
+					return sb.toString();
+				}
+
+			}
+
+			public static record TypeStruct(
+				String identifier,
+				RecordField[] fields,
+				RecordField[] constants,
+				TypeFunction[] functions
+			) implements TypeProduct {
+
+				public TypeStruct(String identifier) {
+					this(
+						identifier,
+						new RecordField[] {},
+						new RecordField[] {},
+						new TypeFunction[] {}
+					);
+				}
+
+				public TypeStruct(String identifier, RecordField... fields) {
+					this(
+						identifier,
+						fields,
+						new RecordField[] {},
+						new TypeFunction[] {}
+					);
+				}
+
+				@Override
+				public String toString() {
+					if (fields.length == 0) return identifier + "<>";
+					var sb = new StringBuilder(identifier + "<");
+					for (int i = 0; i < fields.length; i++) {
+						sb.append(fields[i]);
+						sb.append(",");
+					}
+					sb.append(">");
+					return sb.toString();
+				}
+
 			}
 
 		}

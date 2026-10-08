@@ -1,6 +1,7 @@
 package it.simonvic.giovi.lsp;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import org.antlr.v4.runtime.ParserRuleContext;
@@ -23,6 +24,7 @@ import it.simonvic.giovi.lsp.LSVisitResult.Type.TypePrimitive.TypeNumber.TypeInt
 import it.simonvic.giovi.lsp.LSVisitResult.Type.TypePrimitive.TypeNumber.TypeNatural;
 import it.simonvic.giovi.lsp.LSVisitResult.Type.TypePrimitive.TypeNumber.TypeReal;
 import it.simonvic.giovi.lsp.LSVisitResult.Type.TypePrimitive.TypeText;
+import it.simonvic.giovi.lsp.LSVisitResult.Type.TypeProduct.RecordField;
 import it.simonvic.giovi.lsp.LSVisitResult.Type.TypeProduct.TypeRecord;
 import it.simonvic.giovi.lsp.LSVisitResult.Type.TypeProduct.TypeStruct;
 import it.simonvic.giovi.lsp.LSVisitResult.Type.TypeProduct.TypeTuple;
@@ -217,7 +219,7 @@ public class LSVisitor extends GioviParserBaseVisitor<LSVisitResult> {
 
 	private Type doVisitInvocation(Type invoked) throws Exception {
 		if (invoked instanceof TypeFunction function) {
-			return function.signature().returnType();
+			return function.returnType();
 		} else {
 			throw new Exception("Can't invoke a non-function: " + invoked);
 		}
@@ -273,8 +275,19 @@ public class LSVisitor extends GioviParserBaseVisitor<LSVisitResult> {
 	}
 
 	@Override
-	public LSVisitResult visitTypeRecord(TypeRecordContext ctx) {
-		return super.visitTypeRecord(ctx);
+	public TypeRecord visitTypeRecord(TypeRecordContext ctx) {
+		if (ctx.fieldDeclaration() == null) {
+			return new TypeRecord();
+		}
+		var fields = new RecordField[ctx.fieldDeclaration().size()];
+		for (int i = 0; i < fields.length; i++) {
+			var fieldCtx = ctx.fieldDeclaration(i);
+			fields[i] = new RecordField(
+				fieldCtx.identifier().getText(),
+				visitType(fieldCtx.type())
+			);
+		}
+		return new TypeRecord(fields);
 	}
 
 	@Override
@@ -374,20 +387,40 @@ public class LSVisitor extends GioviParserBaseVisitor<LSVisitResult> {
 
 	@Override
 	public TypeTuple visitTupleCreationBody(TupleCreationBodyContext ctx) {
-		// TODO: ...
-		return new TypeTuple();
+		if (ctx.expression() == null) {
+			return new TypeTuple();
+		}
+		var types = new Type[ctx.expression().size()];
+		for (int i = 0; i < types.length; i++) {
+			types[i] = visitExpression(ctx.expression(i));
+		}
+		return new TypeTuple(types);
 	}
 
 	@Override
 	public TypeRecord visitRecordCreationBody(RecordCreationBodyContext ctx) {
-		// TODO: ...
-		return new TypeRecord();
+		if (ctx.recordEntry() == null) {
+			return new TypeRecord();
+		}
+		var fields = new RecordField[ctx.recordEntry().size()];
+		for (int i = 0; i < fields.length; i++) {
+			var fieldCtx = ctx.recordEntry(i);
+			fields[i] = new RecordField(
+				fieldCtx.identifier().getText(),
+				visitExpression(fieldCtx.expression())
+			);
+		}
+		return new TypeRecord(fields);
 	}
 
 	@Override
 	public TypeStruct visitStructCreation(StructCreationContext ctx) {
-		// TODO: ...
-		return new TypeStruct();
+		var type = visitTypeQualified(ctx.typeQualified());
+		if (type instanceof TypeStruct typeStruct) {
+			return typeStruct;
+		}
+		addDiag(ctx, "Can't instantiate a non-struct type " + type);
+		return new TypeStruct("?");
 	}
 
 	@Override
