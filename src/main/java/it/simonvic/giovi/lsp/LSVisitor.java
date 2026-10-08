@@ -75,8 +75,9 @@ public class LSVisitor extends GioviParserBaseVisitor<LSVisitResult> {
 		setCurrentEnv(getCurrentEnv().parent());
 	}
 
-
-	///////////////////////////////////////////////
+	private void addDiag(ParserRuleContext ctx, String message) {
+		diagnostics.add(new Diagnostic(LSPUtils.range(ctx), message));
+	}
 
 	@Override
 	public Nothing visitImportStatement(ImportStatementContext ctx) {
@@ -97,8 +98,6 @@ public class LSVisitor extends GioviParserBaseVisitor<LSVisitResult> {
 		return NOTHING;
 	}
 
-	///////////////////////////////////////////////
-
 	@Override
 	public Nothing visitAliasStatement(AliasStatementContext ctx) {
 		String alias = ctx.alias.getText();
@@ -109,30 +108,16 @@ public class LSVisitor extends GioviParserBaseVisitor<LSVisitResult> {
 			case TypeType t -> env.declareType(alias, t);
 			case TypeModule t -> env.declareModule(alias, t);
 			// TODO: vars and consts
-			default -> diagnostics.add(
-				new Diagnostic(
-					LSPUtils.range(ctx.expression()),
-					"Can't create an alias for " + expressionType
-				)
-			);
+			default -> addDiag(ctx.expression(), "Can't create an alias for " + expressionType);
 		}
 		return NOTHING;
 	}
-
-
-	///////////////////////////////////////////////
-
 
 	@Override
 	public Nothing visitIfStatement(IfStatementContext ctx) {
 		enterScope(ctx.consequence); // needed for pattern matching?
 		if (!(visit(ctx.condition) instanceof TypeBool)) {
-			diagnostics.add(
-				new Diagnostic(
-					LSPUtils.range(ctx.condition),
-					"A condition must be a boolean value"
-				)
-			);
+			addDiag(ctx.condition, "A condition must be a boolean value");
 		}
 		visitStatementOrBlock(ctx.consequence);
 		exitScope();
@@ -168,12 +153,7 @@ public class LSVisitor extends GioviParserBaseVisitor<LSVisitResult> {
 	public Nothing visitRepeatStatement(RepeatStatementContext ctx) {
 		if (ctx.IF() != null) {
 			if (!(visitExpression(ctx.expression()) instanceof TypeBool)) {
-				diagnostics.add(
-					new Diagnostic(
-						LSPUtils.range(ctx.expression()),
-						"A condition must be a boolean value"
-					)
-				);
+				addDiag(ctx.expression(), "A condition must be a boolean value");
 			}
 		}
 		enterLoopScope(ctx.statementOrBlock());
@@ -190,15 +170,13 @@ public class LSVisitor extends GioviParserBaseVisitor<LSVisitResult> {
 		try {
 			widestType = widestOf(declaredType, initExpressionType);
 			if (!getCurrentEnv().declareConstant(ctx.identifier().getText(), widestType)) {
-				diagnostics.add(
-					new Diagnostic(
-						LSPUtils.range(ctx.identifier()),
-						"Constant already declared with name " + ctx.identifier().getText()
-					)
+				addDiag(
+					ctx.identifier(),
+					"Constant already declared with name " + ctx.identifier().getText()
 				);
 			}
 		} catch (Exception e) {
-			diagnostics.add(new Diagnostic(LSPUtils.range(ctx), "Can't infer type"));
+			addDiag(ctx, "Can't infer type.\n" + e.getMessage());
 		}
 		return NOTHING;
 	}
@@ -221,9 +199,7 @@ public class LSVisitor extends GioviParserBaseVisitor<LSVisitResult> {
 		try {
 			return doVisitInvocation(invoked);
 		} catch (Exception e) {
-			diagnostics.add(
-				new Diagnostic(LSPUtils.range(ctx), "Can't invoke a non-function: " + invoked)
-			);
+			addDiag(ctx, "Can't invoke a non-function: " + invoked);
 			return Type.VOID;
 		}
 	}
@@ -234,9 +210,7 @@ public class LSVisitor extends GioviParserBaseVisitor<LSVisitResult> {
 		try {
 			return doVisitInvocation(invoked);
 		} catch (Exception e) {
-			diagnostics.add(
-				new Diagnostic(LSPUtils.range(ctx), "Can't invoke a non-function: " + invoked)
-			);
+			addDiag(ctx, "Can't invoke a non-function: " + invoked);
 			return Type.VOID;
 		}
 	}
@@ -262,8 +236,7 @@ public class LSVisitor extends GioviParserBaseVisitor<LSVisitResult> {
 			String moduleIdentifier = moduleIdentifierCtx.getText();
 			var optModule = env.getModule(moduleIdentifier);
 			if (optModule.isEmpty()) {
-				diagnostics
-					.add(new Diagnostic(LSPUtils.range(moduleIdentifierCtx), "Can't find module"));
+				addDiag(moduleIdentifierCtx, "Can't find module");
 			} else {
 				env = ((TypeModule) optModule.orElseThrow()).module();
 			}
@@ -271,8 +244,7 @@ public class LSVisitor extends GioviParserBaseVisitor<LSVisitResult> {
 		String typename = ctx.typename.getText();
 		var optScope = env.getType(typename);
 		if (optScope.isEmpty()) {
-			diagnostics
-				.add(new Diagnostic(LSPUtils.range(ctx.typename), "Type not found " + typename));
+			addDiag(ctx.typename, "Type not found " + typename);
 			return null;
 		}
 		return optScope.orElseThrow();
@@ -320,15 +292,13 @@ public class LSVisitor extends GioviParserBaseVisitor<LSVisitResult> {
 		try {
 			widestType = widestOf(declaredType, defaultExpressionType);
 			if (!getCurrentEnv().declareVariable(ctx.identifier().getText(), widestType)) {
-				diagnostics.add(
-					new Diagnostic(
-						LSPUtils.range(ctx.identifier()),
-						"Variable already declared with name " + ctx.identifier().getText()
-					)
+				addDiag(
+					ctx.identifier(),
+					"Variable already declared with name " + ctx.identifier().getText()
 				);
 			}
 		} catch (Exception e) {
-			diagnostics.add(new Diagnostic(LSPUtils.range(ctx), "Can't infer type"));
+			addDiag(ctx, "Can't infer type.\n" + e.getMessage());
 		}
 		return NOTHING;
 	}
@@ -346,15 +316,13 @@ public class LSVisitor extends GioviParserBaseVisitor<LSVisitResult> {
 		try {
 			widestType = widestOf(declaredType, defaultExpressionType, initExpressionType);
 			if (!getCurrentEnv().declareVariable(ctx.identifier().getText(), widestType)) {
-				diagnostics.add(
-					new Diagnostic(
-						LSPUtils.range(ctx.identifier()),
-						"Variable already declared with name " + ctx.identifier().getText()
-					)
+				addDiag(
+					ctx.identifier(),
+					"Variable already declared with name " + ctx.identifier().getText()
 				);
 			}
 		} catch (Exception e) {
-			diagnostics.add(new Diagnostic(LSPUtils.range(ctx), "Can't infer type"));
+			addDiag(ctx, "Can't infer type.\n" + e.getMessage());
 		}
 		return NOTHING;
 	}
@@ -431,7 +399,7 @@ public class LSVisitor extends GioviParserBaseVisitor<LSVisitResult> {
 			var type = widestOf(begin, end, step);
 			return new TypeRange(type);
 		} catch (Exception e) {
-			diagnostics.add(new Diagnostic(LSPUtils.range(ctx), e.getMessage()));
+			addDiag(ctx, "Can't create range.\n" + e.getMessage());
 		}
 		return TypeRange.VOID;
 	}
