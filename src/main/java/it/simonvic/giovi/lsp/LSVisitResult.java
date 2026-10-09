@@ -30,6 +30,35 @@ public sealed interface LSVisitResult {
 		public static final TypeInt INT = new TypeInt();
 		public static final TypeReal REAL = new TypeReal();
 
+		public static Type widestOf(Type... types) throws Exception {
+			if (types.length == 0) return Type.VOID;
+			Type inferred = null;
+			Type next;
+			for (var type : types) {
+				next = type;
+				if (inferred == null) {
+					inferred = next;
+					continue;
+				}
+				if (next.equals(inferred) || next.isNarrower(inferred)) {
+					continue;
+				}
+				if (inferred.isNarrower(next)) {
+					inferred = next;
+					continue;
+				}
+				// find minimum widest type here or rework widening?
+				throw new Exception(
+					"Impossible to infer widest type.\n\tExpecting:\t" + inferred
+						+ "\n\tbut got:\t" + next
+				);
+			}
+			if (inferred == null) {
+				throw new Exception("Impossible to infer widest type");
+			}
+			return inferred;
+		}
+
 		public default boolean isNarrower(Type other) {
 			return this.equals(other);
 		}
