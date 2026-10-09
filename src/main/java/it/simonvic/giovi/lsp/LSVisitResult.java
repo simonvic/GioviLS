@@ -1,5 +1,6 @@
 package it.simonvic.giovi.lsp;
 
+import it.simonvic.giovi.lsp.LSVisitResult.Type.TypeCollection.TypeList;
 import it.simonvic.giovi.lsp.LSVisitResult.Type.TypePrimitive.TypeBool;
 import it.simonvic.giovi.lsp.LSVisitResult.Type.TypePrimitive.TypeNumber.TypeInt;
 import it.simonvic.giovi.lsp.LSVisitResult.Type.TypePrimitive.TypeNumber.TypeNatural;
@@ -29,6 +30,18 @@ public sealed interface LSVisitResult {
 	}
 
 	public static record Default() implements LSVisitResult {
+	}
+
+	public static record ReservedIdentifier(String identifier) implements LSVisitResult {
+
+		public static final ReservedIdentifier _OUT = new ReservedIdentifier("_out");
+		public static final ReservedIdentifier _IN = new ReservedIdentifier("_in");
+		public static final ReservedIdentifier _COUNT = new ReservedIdentifier("_count");
+		public static final ReservedIdentifier _RANGE = new ReservedIdentifier("_range");
+		public static final ReservedIdentifier _CHARS = new ReservedIdentifier("_chars");
+		public static final ReservedIdentifier _KEYS = new ReservedIdentifier("_keys");
+		public static final ReservedIdentifier _VALUES = new ReservedIdentifier("_values");
+
 	}
 
 
@@ -111,7 +124,7 @@ public sealed interface LSVisitResult {
 
 			public static final TypeFunction EMPTY = new TypeFunction("", Type.VOID);
 
-            public static record Param(String label, String identifier, Type type) {
+			public static record Param(String label, String identifier, Type type) {
 
 				public Param(String identifier, Type type) {
 					this(identifier, identifier, type);
@@ -198,9 +211,83 @@ public sealed interface LSVisitResult {
 					return "Text";
 				}
 
+				@Override
+				public LSVisitResult plus(LSVisitResult rhs) {
+					return switch (rhs) {
+						case Type _ -> Type.TEXT;
+						default -> NOTHING;
+					};
+				}
+
+				@Override
+				public LSVisitResult minus(LSVisitResult rhs) {
+					return switch (rhs) {
+						case TypeText _ -> Type.TEXT;
+						default -> NOTHING;
+					};
+				}
+
+				@Override
+				public LSVisitResult multiply(LSVisitResult rhs) {
+					return switch (rhs) {
+						case TypeNumber _ -> Type.TEXT;
+						default -> NOTHING;
+					};
+				}
+
+				@Override
+				public LSVisitResult divide(LSVisitResult rhs) {
+					return switch (rhs) {
+						case TypeText _ -> TypeList.TEXT;
+						default -> NOTHING;
+					};
+				}
+
+				@Override
+				public LSVisitResult power(LSVisitResult rhs) {
+					return switch (rhs) {
+						case TypeNumber _ -> Type.TEXT;
+						default -> NOTHING;
+					};
+				}
+
+				@Override
+				public LSVisitResult dot(LSVisitResult rhs) {
+					return switch (rhs) {
+						case TypeNatural _,TypeInt _ -> Type.TEXT;
+						case TypeRange(TypeNatural _),TypeRange(TypeInt _) -> TypeList.TEXT;
+						case ReservedIdentifier(var i) -> switch (i) {
+							case "_count" -> Type.INT;
+							case "_range" -> TypeRange.INT;
+							case "_chars" -> TypeList.TEXT;
+							default -> NOTHING;
+						};
+						default -> NOTHING;
+					};
+				}
+
 			}
 
 			public static sealed interface TypeNumber extends TypePrimitive {
+
+				@Override
+				default TypeNumber positive() {
+					return this;
+				}
+
+				@Override
+				default TypeNumber negative() {
+					return this;
+				}
+
+				@Override
+				default LSVisitResult divide(LSVisitResult rhs) {
+					return switch (rhs) {
+						case TypeNumber _ -> Type.REAL;
+						default -> NOTHING;
+					};
+				}
+
 
 				public static record TypeNatural() implements TypeNumber {
 
@@ -214,6 +301,60 @@ public sealed interface LSVisitResult {
 						return switch (other) {
 							case TypeNatural _,TypeInt _,TypeReal _ -> true;
 							default -> false;
+						};
+					}
+
+					@Override
+					public TypeNumber negative() {
+						return Type.INT;
+					}
+
+					@Override
+					public LSVisitResult plus(LSVisitResult rhs) {
+						return switch (rhs) {
+							case TypeNatural _ -> Type.NAT;
+							case TypeInt _ -> Type.INT;
+							case TypeReal _ -> Type.REAL;
+							default -> NOTHING;
+						};
+					}
+
+					@Override
+					public LSVisitResult minus(LSVisitResult rhs) {
+						return switch (rhs) {
+							case TypeNatural _,TypeInt _ -> Type.INT;
+							case TypeReal _ -> Type.REAL;
+							default -> NOTHING;
+						};
+					}
+
+					@Override
+					public LSVisitResult multiply(LSVisitResult rhs) {
+						return switch (rhs) {
+							case TypeNatural _ -> Type.NAT;
+							case TypeInt _ -> Type.INT;
+							case TypeReal _ -> Type.REAL;
+							default -> NOTHING;
+						};
+					}
+
+					@Override
+					public LSVisitResult power(LSVisitResult rhs) {
+						return switch (rhs) {
+							case TypeNatural _ -> Type.NAT;
+							case TypeInt _ -> Type.INT;
+							case TypeReal _ -> Type.REAL;
+							default -> NOTHING;
+						};
+					}
+
+					@Override
+					public LSVisitResult modulo(LSVisitResult rhs) {
+						return switch (rhs) {
+							case TypeNatural _ -> Type.NAT;
+							case TypeInt _ -> Type.INT;
+							case TypeReal _ -> Type.REAL;
+							default -> NOTHING;
 						};
 					}
 
@@ -234,6 +375,50 @@ public sealed interface LSVisitResult {
 						};
 					}
 
+					@Override
+					public LSVisitResult plus(LSVisitResult rhs) {
+						return switch (rhs) {
+							case TypeNatural _,TypeInt _ -> Type.INT;
+							case TypeReal _ -> Type.REAL;
+							default -> NOTHING;
+						};
+					}
+
+					@Override
+					public LSVisitResult minus(LSVisitResult rhs) {
+						return switch (rhs) {
+							case TypeNatural _,TypeInt _ -> Type.INT;
+							case TypeReal _ -> Type.REAL;
+							default -> NOTHING;
+						};
+					}
+
+					@Override
+					public LSVisitResult multiply(LSVisitResult rhs) {
+						return switch (rhs) {
+							case TypeNatural _,TypeInt _ -> Type.INT;
+							case TypeReal _ -> Type.REAL;
+							default -> NOTHING;
+						};
+					}
+
+					@Override
+					public LSVisitResult power(LSVisitResult rhs) {
+						return switch (rhs) {
+							case TypeNatural _,TypeInt _ -> Type.INT;
+							case TypeReal _ -> Type.REAL;
+							default -> NOTHING;
+						};
+					}
+
+					@Override
+					public LSVisitResult modulo(LSVisitResult rhs) {
+						return switch (rhs) {
+							case TypeNatural _,TypeInt _ -> Type.INT;
+							case TypeReal _ -> Type.REAL;
+							default -> NOTHING;
+						};
+					}
 
 				}
 
@@ -242,6 +427,46 @@ public sealed interface LSVisitResult {
 					@Override
 					public String toString() {
 						return "Real";
+					}
+
+					@Override
+					public LSVisitResult plus(LSVisitResult rhs) {
+						return switch (rhs) {
+							case TypeNumber _ -> Type.REAL;
+							default -> NOTHING;
+						};
+					}
+
+					@Override
+					public LSVisitResult minus(LSVisitResult rhs) {
+						return switch (rhs) {
+							case TypeNumber _ -> Type.REAL;
+							default -> NOTHING;
+						};
+					}
+
+					@Override
+					public LSVisitResult multiply(LSVisitResult rhs) {
+						return switch (rhs) {
+							case TypeNumber _ -> Type.REAL;
+							default -> NOTHING;
+						};
+					}
+
+					@Override
+					public LSVisitResult power(LSVisitResult rhs) {
+						return switch (rhs) {
+							case TypeNumber _ -> Type.REAL;
+							default -> NOTHING;
+						};
+					}
+
+					@Override
+					public LSVisitResult modulo(LSVisitResult rhs) {
+						return switch (rhs) {
+							case TypeNumber _ -> Type.REAL;
+							default -> NOTHING;
+						};
 					}
 
 				}
@@ -255,6 +480,7 @@ public sealed interface LSVisitResult {
 			public static record TypeList(Type val) implements TypeCollection {
 
 				public static final TypeList VOID = new TypeList(Type.VOID);
+				public static final TypeList TEXT = new TypeList(Type.TEXT);
 
 				@Override
 				public String toString() {
@@ -266,6 +492,38 @@ public sealed interface LSVisitResult {
 					return switch (other) {
 						case TypeList o -> this.val.isNarrower(o.val);
 						default -> false;
+					};
+				}
+
+				@Override
+				public LSVisitResult plus(LSVisitResult rhs) {
+					return switch (rhs) {
+						case TypeList(var val) when val.isNarrower(this.val) -> this;
+						case Type val when val.isNarrower(this.val) -> this;
+						default -> NOTHING;
+					};
+				}
+
+				@Override
+				public LSVisitResult minus(LSVisitResult rhs) {
+					return switch (rhs) {
+						case TypeList(var val) when val.isNarrower(this.val) -> this;
+						case Type val when val.isNarrower(this.val) -> this;
+						default -> NOTHING;
+					};
+				}
+
+				@Override
+				public LSVisitResult dot(LSVisitResult rhs) {
+					return switch (rhs) {
+						case TypeNatural _,TypeInt _ -> this.val;
+						case TypeRange(TypeNatural _),TypeRange(TypeInt _) -> this;
+						case ReservedIdentifier(var i) -> switch (i) {
+							case "_count" -> Type.INT;
+							case "_range" -> TypeRange.INT;
+							default -> NOTHING;
+						};
+						default -> NOTHING;
 					};
 				}
 
@@ -285,6 +543,42 @@ public sealed interface LSVisitResult {
 					return switch (other) {
 						case TypeMap o -> this.key.isNarrower(o.key) && this.val.isNarrower(o.val);
 						default -> false;
+					};
+				}
+
+				@Override
+				public LSVisitResult plus(LSVisitResult rhs) {
+					return switch (rhs) {
+						case TypeMap(var key, var val) when key.isNarrower(this.key)
+							&& val.isNarrower(this.val)
+							-> this;
+						default -> NOTHING;
+					};
+				}
+
+
+				@Override
+				public LSVisitResult minus(LSVisitResult rhs) {
+					return switch (rhs) {
+						case TypeMap(var key, var val) when key.isNarrower(this.key)
+							&& val.isNarrower(this.val)
+							-> this;
+						default -> NOTHING;
+					};
+				}
+
+				@Override
+				public LSVisitResult dot(LSVisitResult rhs) {
+					return switch (rhs) {
+						case Type t when t.equals(this.key) -> this.val;
+						case TypeRange(TypeNatural _),TypeRange(TypeInt _) -> this;
+						case ReservedIdentifier(var i) -> switch (i) {
+							case "_count" -> Type.INT;
+							case "_keys" -> new TypeList(this.key);
+							case "_values" -> new TypeList(this.val);
+							default -> NOTHING;
+						};
+						default -> NOTHING;
 					};
 				}
 

@@ -8,8 +8,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.antlr.v4.runtime.ParserRuleContext;
+import org.antlr.v4.runtime.Token;
 import org.eclipse.lsp4j.*;
 
+import it.simonvic.giovi.antlr.GioviExtendedLexer;
 import it.simonvic.giovi.antlr.GioviExtendedParser.*;
 import it.simonvic.giovi.antlr.GioviExtendedParserBaseVisitor;
 import it.simonvic.giovi.lsp.Environment.Declaration;
@@ -17,6 +19,7 @@ import it.simonvic.giovi.lsp.Environment.EnvironmentFunction;
 import it.simonvic.giovi.lsp.Environment.EnvironmentLoop;
 import it.simonvic.giovi.lsp.LSVisitResult.Default;
 import it.simonvic.giovi.lsp.LSVisitResult.Nothing;
+import it.simonvic.giovi.lsp.LSVisitResult.ReservedIdentifier;
 import it.simonvic.giovi.lsp.LSVisitResult.Type;
 import it.simonvic.giovi.lsp.LSVisitResult.Type.*;
 import it.simonvic.giovi.lsp.LSVisitResult.Type.TypeCollection.TypeList;
@@ -580,8 +583,17 @@ public class LSVisitor extends GioviExtendedParserBaseVisitor<LSVisitResult> {
 
 	@Override
 	public Type visitExpressionDot(ExpressionDotContext ctx) {
-		// TODO: ...
-		return Type.VOID;
+		var lhs = visitExpression(ctx.expression());
+		// TODO: properly
+		var rhs = visit(ctx.getChild(2));
+		var result = lhs.dot(rhs);
+		return switch (result) {
+			case Type t -> t;
+			default -> {
+				addDiagErr(ctx, "Error evaluating dot expression");
+				yield Type.VOID;
+			}
+		};
 	}
 
 	@Override
@@ -647,18 +659,97 @@ public class LSVisitor extends GioviExtendedParserBaseVisitor<LSVisitResult> {
 	}
 
 	@Override
-	public Nothing visitReservedIdentifier(ReservedIdentifierContext ctx) {
-		switch (ctx.getText()) {
-			case "_in", "_out" -> {}
-			case String s -> {
-				var d = new Diagnostic();
-				d.setRange(LSPUtils.range(ctx));
-				d.setMessage("Unknown reserved identifier: " + s);
-				d.setSeverity(DiagnosticSeverity.Error);
-				diagnostics.add(d);
+	public Type visitExpressionAdditive(ExpressionAdditiveContext ctx) {
+		var result = doVisitBinary(
+			visitExpression(ctx.expression(0)),
+			ctx.bop,
+			visitExpression(ctx.expression(1))
+		);
+		return switch (result) {
+			case Type t -> t;
+			default -> {
+				addDiagErr(ctx, "Can't evaluate expression");
+				yield Type.VOID;
 			}
-		}
-		return NOTHING;
+		};
+	}
+
+	@Override
+	public Type visitExpressionMultiplicative(ExpressionMultiplicativeContext ctx) {
+		var result = doVisitBinary(
+			visitExpression(ctx.expression(0)),
+			ctx.bop,
+			visitExpression(ctx.expression(1))
+		);
+		return switch (result) {
+			case Type t -> t;
+			default -> {
+				addDiagErr(ctx, "Can't evaluate expression");
+				yield Type.VOID;
+			}
+		};
+	}
+
+	@Override
+	public Type visitExpressionPower(ExpressionPowerContext ctx) {
+		var result = doVisitBinary(
+			visitExpression(ctx.expression(0)),
+			ctx.bop,
+			visitExpression(ctx.expression(1))
+		);
+		return switch (result) {
+			case Type t -> t;
+			default -> {
+				addDiagErr(ctx, "Can't evaluate expression");
+				yield Type.VOID;
+			}
+		};
+	}
+
+	private LSVisitResult doVisitBinary(Type lhs, Token bop, Type rhs) {
+		return switch (bop.getType()) {
+			case GioviExtendedLexer.EXPONENTIAL -> lhs.power(rhs);
+			case GioviExtendedLexer.MULTIPLICATION -> lhs.multiply(rhs);
+			case GioviExtendedLexer.DIVISION -> lhs.divide(rhs);
+			case GioviExtendedLexer.MODULO -> lhs.modulo(rhs);
+			case GioviExtendedLexer.PLUS -> lhs.plus(rhs);
+			case GioviExtendedLexer.MINUS -> lhs.minus(rhs);
+			default -> NOTHING;
+		};
+	}
+
+	@Override
+	public Type visitExpressionPrefixed(ExpressionPrefixedContext ctx) {
+		var rhs = visitExpression(ctx.expression());
+		var result = switch (ctx.prefix.getType()) {
+			case GioviExtendedLexer.PLUS -> rhs.positive();
+			case GioviExtendedLexer.MINUS -> rhs.negative();
+			default -> NOTHING;
+		};
+		return switch (result) {
+			case Type t -> t;
+			default -> {
+				addDiagErr(ctx, "Can't evaluate expression");
+				yield Type.VOID;
+			}
+		};
+	}
+
+	@Override
+	public ReservedIdentifier visitReservedIdentifier(ReservedIdentifierContext ctx) {
+		return switch (ctx.getText()) {
+			case "_out" -> ReservedIdentifier._OUT;
+			case "_in" -> ReservedIdentifier._IN;
+			case "_count" -> ReservedIdentifier._COUNT;
+			case "_range" -> ReservedIdentifier._RANGE;
+			case "_chars" -> ReservedIdentifier._CHARS;
+			case "_keys" -> ReservedIdentifier._KEYS;
+			case "_values" -> ReservedIdentifier._VALUES;
+			case String s -> {
+				addDiagErr(ctx, "Unknown reserved identifier: " + s);
+				yield new ReservedIdentifier(s);
+			}
+		};
 	}
 
 	@Override
