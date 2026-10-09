@@ -109,7 +109,9 @@ public sealed interface LSVisitResult {
 			Param... parameters
 		) implements Type {
 
-			public static record Param(String label, String identifier, Type type) {
+			public static final TypeFunction EMPTY = new TypeFunction("", Type.VOID);
+
+            public static record Param(String label, String identifier, Type type) {
 
 				public Param(String identifier, Type type) {
 					this(identifier, identifier, type);

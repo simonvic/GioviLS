@@ -335,7 +335,10 @@ public class LSVisitor extends GioviExtendedParserBaseVisitor<LSVisitResult> {
 
 	@Override
 	public TypeFunction visitAnonFunction(AnonFunctionContext ctx) {
-		return new TypeFunction("", Type.VOID);
+		var signatureCtx = ctx.anonFunctionSignature();
+		return (signatureCtx == null)
+			? TypeFunction.EMPTY
+			: visitAnonFunctionSignature(signatureCtx);
 	}
 
 	@Override
@@ -435,8 +438,25 @@ public class LSVisitor extends GioviExtendedParserBaseVisitor<LSVisitResult> {
 
 	@Override
 	public TypeFunction visitTypeFunctionRef(TypeFunctionRefContext ctx) {
-		// TODO: ...
-		return new TypeFunction("", visitType(ctx.anonFunctionSignature().returnType));
+		return visitAnonFunctionSignature(ctx.anonFunctionSignature());
+	}
+
+	@Override
+	public TypeFunction visitAnonFunctionSignature(AnonFunctionSignatureContext ctx) {
+		var returnType = (ctx.returnType == null)
+			? Type.VOID
+			: visitType(ctx.returnType);
+		var paramsCtxs = ctx.formalParameters().formalParameter();
+		var parameters = new Param[(paramsCtxs == null) ? 0 : paramsCtxs.size()];
+		for (int i = 0; i < parameters.length; i++) {
+			var paramCtx = paramsCtxs.get(i);
+			String name = paramCtx.name.getText();
+			var type = visitType(paramCtx.type());
+			parameters[i] = (paramCtx.label != null)
+				? new Param(paramCtx.label.getText(), name, type)
+				: new Param(name, type);
+		}
+		return new TypeFunction("", returnType, parameters);
 	}
 
 	@Override
@@ -567,13 +587,18 @@ public class LSVisitor extends GioviExtendedParserBaseVisitor<LSVisitResult> {
 	@Override
 	public TypeFunction visitExpressionDotRef(ExpressionDotRefContext ctx) {
 		// TODO: ...
-		return new TypeFunction("", Type.VOID);
+		return TypeFunction.EMPTY;
 	}
 
 	@Override
 	public TypeFunction visitExpressionRef(ExpressionRefContext ctx) {
-		// TODO: ...
-		return new TypeFunction("", Type.VOID);
+		return switch (visit(ctx.referenceable())) {
+			case TypeFunction typeFunc -> typeFunc;
+			case null, default -> {
+				addDiagErr(ctx.referenceable(), "Can't reference a non-function");
+				yield TypeFunction.EMPTY;
+			}
+		};
 	}
 
 	@Override
