@@ -140,7 +140,32 @@ public class GioviTextDocumentService implements TextDocumentService {
 			hover = null;
 		} else {
 			var matchedNode = matchedNodeOpt.orElseThrow();
+			var hoverContents = new ArrayList<Either<String, MarkedString>>();
+			if (matchedNode.getParent() instanceof IdentifierContext idCtx) {
+				doc.getVisitor()
+					.getRootEnv()
+					.query(params.getPosition())
+					.ifPresent(
+						env -> env.lookup(idCtx.getText())
+							.map(Object::toString)
+							.map(s -> new MarkedString("giovi", s))
+							.map(Either::<String, MarkedString>forRight)
+							.ifPresent(hoverContents::add)
+					);
+			}
+
+			Optional<StatementContext> closestAncestorStatement = LSPUtils
+				.findClosestAncestor(matchedNode, StatementContext.class);
+			closestAncestorStatement.map(
+				statementCtx -> LSPUtils.findDocumentation(
+					statementCtx,
+					(CommonTokenStream) parser.getTokenStream()
+				).orElse("No documentation found")
+			).map(Either::<String, MarkedString>forLeft)
+				.ifPresent(hoverContents::add);
+
 			var sb = new StringBuilder();
+			sb.append("\n---\n");
 			sb.append("- Text: *")
 				.append(matchedNode.getText())
 				.append("*\n");
@@ -150,9 +175,6 @@ public class GioviTextDocumentService implements TextDocumentService {
 			sb.append("- Ancestor type: `")
 				.append(matchedNode.getParent().getClass().getSimpleName())
 				.append("`\n");
-
-			Optional<StatementContext> closestAncestorStatement = LSPUtils
-				.findClosestAncestor(matchedNode, StatementContext.class);
 			closestAncestorStatement.ifPresent(
 				statementCtx -> sb.append("- Statement ancestor: `")
 					.append(statementCtx.getChild(0).getClass().getSimpleName())
@@ -168,32 +190,7 @@ public class GioviTextDocumentService implements TextDocumentService {
 			}
 			sb.deleteCharAt(sb.length() - 1)
 				.repeat(")", hierarchy.size())
-				.append("```\n");
-
-			closestAncestorStatement.ifPresent(
-				statementCtx -> sb
-					.append("---\n")
-					.append(
-						LSPUtils
-							.findDocumentation(
-								statementCtx, (CommonTokenStream) parser.getTokenStream()
-							)
-							.orElse("No documentation found")
-					)
-					.append("\n")
-			);
-
-			if (matchedNode.getParent() instanceof IdentifierContext idCtx) {
-				var visitor = doc.getVisitor();
-				var optEnv = visitor.getRootEnv().query(params.getPosition());
-				if (optEnv.isPresent()) {
-					var env = optEnv.orElseThrow();
-					var optSymbol = env.lookup(idCtx.getText());
-					if (optSymbol.isPresent()) {
-						sb.append(optSymbol.orElseThrow().toString());
-					}
-				}
-			}
+				.append("\n```\n");
 
 			// sb.append("""
 			// 	---
@@ -215,7 +212,10 @@ public class GioviTextDocumentService implements TextDocumentService {
 			// 		.stream()
 			// 		.map(t -> "- " + t.getChannel() + ": '" + t.getText() + "'")
 			// 		.collect(Collectors.joining("\n"))));
-			hover = new Hover(new MarkupContent(MarkupKind.MARKDOWN, sb.toString()));
+			hoverContents.add(Either.forLeft(sb.toString()));
+
+			hover = new Hover();
+			hover.setContents(hoverContents);
 		}
 		return CompletableFutures.computeAsync(_ -> {
 			return hover;
