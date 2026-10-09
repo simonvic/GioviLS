@@ -1,7 +1,5 @@
 package it.simonvic.giovi.lsp;
 
-import java.util.Arrays;
-
 import it.simonvic.giovi.lsp.LSVisitResult.Type.TypePrimitive.TypeBool;
 import it.simonvic.giovi.lsp.LSVisitResult.Type.TypePrimitive.TypeNumber.TypeInt;
 import it.simonvic.giovi.lsp.LSVisitResult.Type.TypePrimitive.TypeNumber.TypeNatural;
@@ -10,6 +8,9 @@ import it.simonvic.giovi.lsp.LSVisitResult.Type.TypePrimitive.TypeText;
 import it.simonvic.giovi.lsp.LSVisitResult.Type.TypePrimitive.TypeVoid;
 
 public sealed interface LSVisitResult {
+
+	public static final Nothing NOTHING = new Nothing();
+	public static final Default DEFAULT = new Default();
 
 	public static record Nothing() implements LSVisitResult {
 	}

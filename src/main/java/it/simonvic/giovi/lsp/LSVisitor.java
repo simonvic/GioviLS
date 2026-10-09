@@ -1,5 +1,8 @@
 package it.simonvic.giovi.lsp;
 
+import static it.simonvic.giovi.lsp.LSVisitResult.NOTHING;
+import static it.simonvic.giovi.lsp.LSVisitResult.DEFAULT;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -29,10 +32,6 @@ import it.simonvic.giovi.lsp.LSVisitResult.Type.TypeProduct.TypeStruct;
 import it.simonvic.giovi.lsp.LSVisitResult.Type.TypeProduct.TypeTuple;
 
 public class LSVisitor extends GioviExtendedParserBaseVisitor<LSVisitResult> {
-
-	private static final Nothing NOTHING = new Nothing();
-	private static final Default DEFAULT = new Default();
-	private static final TypeAny ANY = new TypeAny();
 
 	private final List<Diagnostic> diagnostics = new ArrayList<>();
 	private final List<InlayHint> inlayHints = new ArrayList<>();
@@ -524,6 +523,31 @@ public class LSVisitor extends GioviExtendedParserBaseVisitor<LSVisitResult> {
 
 	private Type visitExpression(ExpressionContext ctx) {
 		return (Type) visit(ctx);
+	}
+
+	@Override
+	public TypeBool visitExpressionBool(ExpressionBoolContext ctx) {
+		return Type.BOOL;
+	}
+
+	@Override
+	public TypeBool visitExpressionNot(ExpressionNotContext ctx) {
+		return Type.BOOL;
+	}
+
+	@Override
+	public TypeBool visitExpressionContainment(ExpressionContainmentContext ctx) {
+		return Type.BOOL;
+	}
+
+	@Override
+	public TypeBool visitExpressionEquality(ExpressionEqualityContext ctx) {
+		return Type.BOOL;
+	}
+
+	@Override
+	public TypeBool visitExpressionRelational(ExpressionRelationalContext ctx) {
+		return Type.BOOL;
 	}
 
 	@Override
