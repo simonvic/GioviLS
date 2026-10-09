@@ -3,18 +3,18 @@ package it.simonvic.giovi.lsp;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
 
-import it.simonvic.giovi.antlr.GioviLexer;
-import it.simonvic.giovi.antlr.GioviParser;
+import it.simonvic.giovi.antlr.GioviExtendedLexer;
+import it.simonvic.giovi.antlr.GioviExtendedParser;
 
 public class LSVisitorUtils {
 
 	private static class DummyTestsVisitor extends TestsLSVisitor {
 	}
 
-	public static GioviParser parserOf(String code) {
-		var lexer = new GioviLexer(CharStreams.fromString(code));
+	public static GioviExtendedParser parserOf(String code) {
+		var lexer = new GioviExtendedLexer(CharStreams.fromString(code));
 		var tokens = new CommonTokenStream(lexer);
-		var parser = new GioviParser(tokens);
+		var parser = new GioviExtendedParser(tokens);
 		// parser.addErrorListener(new GioviParserErrorListener(code));
 		return parser;
 	}

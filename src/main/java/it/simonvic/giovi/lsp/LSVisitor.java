@@ -6,8 +6,8 @@ import java.util.List;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.eclipse.lsp4j.*;
 
-import it.simonvic.giovi.antlr.GioviParser.*;
-import it.simonvic.giovi.antlr.GioviParserBaseVisitor;
+import it.simonvic.giovi.antlr.GioviExtendedParser.*;
+import it.simonvic.giovi.antlr.GioviExtendedParserBaseVisitor;
 import it.simonvic.giovi.lsp.Environment.EnvironmentFunction;
 import it.simonvic.giovi.lsp.Environment.EnvironmentLoop;
 import it.simonvic.giovi.lsp.LSVisitResult.Default;
@@ -27,7 +27,7 @@ import it.simonvic.giovi.lsp.LSVisitResult.Type.TypeProduct.TypeRecord;
 import it.simonvic.giovi.lsp.LSVisitResult.Type.TypeProduct.TypeStruct;
 import it.simonvic.giovi.lsp.LSVisitResult.Type.TypeProduct.TypeTuple;
 
-public class LSVisitor extends GioviParserBaseVisitor<LSVisitResult> {
+public class LSVisitor extends GioviExtendedParserBaseVisitor<LSVisitResult> {
 
 	private static final Nothing NOTHING = new Nothing();
 	private static final Default DEFAULT = new Default();

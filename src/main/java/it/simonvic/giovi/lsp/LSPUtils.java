@@ -21,9 +21,7 @@ import org.eclipse.lsp4j.TextDocumentIdentifier;
 
 import it.simonvic.giovi.antlr.GioviExtendedLexer;
 import it.simonvic.giovi.antlr.GioviExtendedParser;
-import it.simonvic.giovi.antlr.GioviLexer;
-import it.simonvic.giovi.antlr.GioviParser;
-import it.simonvic.giovi.antlr.GioviParser.IdentifierContext;
+import it.simonvic.giovi.antlr.GioviExtendedParser.IdentifierContext;
 
 public class LSPUtils {
 
@@ -235,10 +233,10 @@ public class LSPUtils {
 	 * @return parser
 	 * @throws IOException
 	 */
-	public static GioviParser parserFrom(TextDocumentIdentifier textDocument) throws IOException {
+	public static GioviExtendedParser parserFrom(TextDocumentIdentifier textDocument) throws IOException {
 		URI uri = URI.create(textDocument.getUri());
-		var lexer = new GioviLexer(CharStreams.fromFileName(uri.getPath()));
-		return new GioviParser(new CommonTokenStream(lexer));
+		var lexer = new GioviExtendedLexer(CharStreams.fromFileName(uri.getPath()));
+		return new GioviExtendedParser(new CommonTokenStream(lexer));
 	}
 
 	/**
@@ -246,17 +244,7 @@ public class LSPUtils {
 	 * @param doc
 	 * @return parser
 	 */
-	public static GioviParser parserFrom(GioviDocument doc) {
-		var lexer = new GioviLexer(CharStreams.fromString(doc.getContent()));
-		return new GioviParser(new CommonTokenStream(lexer));
-	}
-
-	/**
-	 * Get new extended parser for the given document
-	 * @param doc
-	 * @return extended parser
-	 */
-	public static GioviExtendedParser extendedParserFrom(GioviDocument doc) {
+	public static GioviExtendedParser parserFrom(GioviDocument doc) {
 		var lexer = new GioviExtendedLexer(CharStreams.fromString(doc.getContent()));
 		return new GioviExtendedParser(new CommonTokenStream(lexer));
 	}
@@ -266,18 +254,7 @@ public class LSPUtils {
 	 * @param content
 	 * @return extended parser
 	 */
-	public static GioviParser parserFrom(String content) {
-		var lexer = new GioviLexer(CharStreams.fromString(content));
-		return new GioviParser(new CommonTokenStream(lexer));
-	}
-
-	/**
-	 * Get new parser for the given URI
-	 * @param uri
-	 * @return parser
-	 * @throws IOException
-	 */
-	public static GioviExtendedParser extendedParserFrom(String content) {
+	public static GioviExtendedParser parserFrom(String content) {
 		var lexer = new GioviExtendedLexer(CharStreams.fromString(content));
 		return new GioviExtendedParser(new CommonTokenStream(lexer));
 	}

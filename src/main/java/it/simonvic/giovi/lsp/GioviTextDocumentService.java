@@ -129,7 +129,7 @@ public class GioviTextDocumentService implements TextDocumentService {
 	public CompletableFuture<Hover> hover(HoverParams params) {
 		log.info("hover()");
 		var doc = documents.get(params.getTextDocument().getUri());
-		var parser = LSPUtils.extendedParserFrom(doc);
+		var parser = LSPUtils.parserFrom(doc);
 
 		Optional<TerminalNode> matchedNodeOpt = LSPUtils.findLeaf(
 			parser.begin(),
