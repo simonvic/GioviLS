@@ -2,13 +2,11 @@ package it.simonvic.giovi.lsp;
 
 import java.util.*;
 
-import org.eclipse.lsp4j.CompletionItem;
-import org.eclipse.lsp4j.CompletionItemKind;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
+import org.eclipse.lsp4j.SymbolKind;
 
 import it.simonvic.giovi.lsp.LSVisitResult.Type;
-import it.simonvic.giovi.lsp.LSVisitResult.Type.TypePrimitive;
 
 public sealed class Environment {
 
@@ -34,6 +32,13 @@ public sealed class Environment {
 			super(range);
 		}
 
+	}
+
+	public static record Declaration(
+		SymbolKind kind,
+		Type type,
+		Range range
+	) {
 	}
 
 	private final Environment parent;
@@ -96,59 +101,54 @@ public sealed class Environment {
 		return Optional.of(this);
 	}
 
-	public Map<String, CompletionItem> lookupAll() {
-		var items = new HashMap<String, CompletionItem>();
+	public Map<String, Declaration> lookupAll() {
+		var items = new HashMap<String, Declaration>();
 		// we get values in reverse lookup order, so we get shadowing for free
 		// TODO: no, that's stupid, just start from bottom and check if contained already
 		if (parent != null) {
 			items.putAll(parent.lookupAll());
 		}
-		modules.forEach((k, v) -> {
-			var item = new CompletionItem();
-			item.setKind(CompletionItemKind.Module);
-			item.setLabel(k);
-			items.put(k, item);
-		});
-		types.forEach((k, v) -> {
-			var item = new CompletionItem();
-			item.setKind(CompletionItemKind.Class);
-			item.setLabel(k);
-			items.put(k, item);
-		});
-		functions.forEach((k, v) -> {
-			var item = new CompletionItem();
-			item.setKind(CompletionItemKind.Function);
-			item.setLabel(k);
-			items.put(k, item);
-		});
-		constants.forEach((k, v) -> {
-			var item = new CompletionItem();
-			item.setKind(CompletionItemKind.Constant);
-			item.setLabel(k);
-			items.put(k, item);
-		});
-		variables.forEach((k, v) -> {
-			var item = new CompletionItem();
-			item.setKind(CompletionItemKind.Variable);
-			item.setLabel(k);
-			items.put(k, item);
-		});
+		items.putAll(modules);
+		items.putAll(types);
+		items.putAll(functions);
+		items.putAll(constants);
+		items.putAll(variables);
 		return items;
 	}
 
 	public boolean declare(
-		Map<String, Type> environment,
+		Map<String, Declaration> environment,
 		String identifier,
-		Type type
+		Declaration declaration
 	) {
 		if (environment.containsKey(identifier)) {
 			return false;
 		}
-		environment.put(identifier, type);
+		environment.put(identifier, declaration);
 		return true;
 	}
 
-	public Optional<Type> lookup(String identifier) {
+	public boolean declare(
+		String identifier,
+		Declaration declaration
+	) {
+		var env = switch (declaration.kind()) {
+			case Variable -> variables;
+			case Constant -> constants;
+			case Function -> functions;
+			case Struct -> types;
+			case Module -> modules;
+			default -> null;
+		};
+		if (env == null) return false;
+		if (env.containsKey(identifier)) {
+			return false;
+		}
+		env.put(identifier, declaration);
+		return true;
+	}
+
+	public Optional<Declaration> lookup(String identifier) {
 		return Optional.ofNullable(variables.get(identifier))
 			.or(() -> Optional.ofNullable(constants.get(identifier)))
 			.or(() -> Optional.ofNullable(functions.get(identifier)))
@@ -159,10 +159,10 @@ public sealed class Environment {
 
 	//////////////////////////////////////////////////////////////////////////////////////////////// Variables
 
-	private final Map<String, Type> variables = new HashMap<>();
+	private final Map<String, Declaration> variables = new HashMap<>();
 
-	public boolean declareVariable(String identifier, Type type) {
-		return declare(variables, identifier, type);
+	public boolean declareVariable(String identifier, Declaration declaration) {
+		return declare(variables, identifier, declaration);
 	}
 
 	public boolean isDeclaredVariable(String identifier) {
@@ -170,7 +170,7 @@ public sealed class Environment {
 			|| (parent != null && parent.isDeclaredVariable(identifier));
 	}
 
-	public Optional<Type> getVariable(String identifier) {
+	public Optional<Declaration> getVariable(String identifier) {
 		if (variables.containsKey(identifier)) {
 			return Optional.of(variables.get(identifier));
 		}
@@ -183,10 +183,10 @@ public sealed class Environment {
 
 	//////////////////////////////////////////////////////////////////////////////////////////////// Constants
 
-	private final Map<String, Type> constants = new HashMap<>();
+	private final Map<String, Declaration> constants = new HashMap<>();
 
-	public boolean declareConstant(String identifier, Type type) {
-		return declare(constants, identifier, type);
+	public boolean declareConstant(String identifier, Declaration declaration) {
+		return declare(constants, identifier, declaration);
 	}
 
 	public boolean isDeclaredConstant(String identifier) {
@@ -194,7 +194,7 @@ public sealed class Environment {
 			|| (parent != null && parent.isDeclaredConstant(identifier));
 	}
 
-	public Optional<Type> getConstant(String identifier) {
+	public Optional<Declaration> getConstant(String identifier) {
 		if (constants.containsKey(identifier)) {
 			return Optional.of(constants.get(identifier));
 		}
@@ -206,10 +206,10 @@ public sealed class Environment {
 
 	//////////////////////////////////////////////////////////////////////////////////////////////// Functions
 
-	private final Map<String, Type> functions = new HashMap<>();
+	private final Map<String, Declaration> functions = new HashMap<>();
 
-	public boolean declareFunction(String identifier, Type type) {
-		return declare(functions, identifier, type);
+	public boolean declareFunction(String identifier, Declaration declaration) {
+		return declare(functions, identifier, declaration);
 	}
 
 	public boolean isDeclaredFunction(String identifier) {
@@ -217,7 +217,7 @@ public sealed class Environment {
 			|| (parent != null && parent.isDeclaredFunction(identifier));
 	}
 
-	public Optional<Type> getFunction(String identifier) {
+	public Optional<Declaration> getFunction(String identifier) {
 		if (functions.containsKey(identifier)) {
 			return Optional.of(functions.get(identifier));
 		}
@@ -227,14 +227,20 @@ public sealed class Environment {
 		return parent.getFunction(identifier);
 	}
 
-	//////////////////////////////////////////////////////////////////////////////////////////////// Types
+	//////////////////////////////////////////////////////////////////////////////////////////////// Declarations
 
-	private final Map<String, Type> types = new HashMap<>();
+	private final Map<String, Declaration> types = new HashMap<>();
 
-	public static final Map<String, TypePrimitive> primitiveTypes = Map.of();
+	public static final Map<String, Declaration> primitiveTypes = Map.of(
+		"Natural", new Declaration(SymbolKind.Class, Type.NAT, null),
+		"Int", new Declaration(SymbolKind.Class, Type.INT, null),
+		"Real", new Declaration(SymbolKind.Class, Type.REAL, null),
+		"Bool", new Declaration(SymbolKind.Class, Type.BOOL, null),
+		"Text", new Declaration(SymbolKind.Class, Type.TEXT, null)
+	);
 
-	public boolean declareType(String identifier, Type type) {
-		return declare(types, identifier, type);
+	public boolean declareType(String identifier, Declaration declaration) {
+		return declare(types, identifier, declaration);
 	}
 
 	public boolean isDeclaredType(String identifier) {
@@ -242,31 +248,18 @@ public sealed class Environment {
 			|| (parent != null && parent.isDeclaredType(identifier));
 	}
 
-	public Optional<Type> getType(String identifier) {
-		return switch (identifier) {
-			case "Natural" -> Optional.of(Type.NAT);
-			case "Int" -> Optional.of(Type.INT);
-			case "Real" -> Optional.of(Type.REAL);
-			case "Bool" -> Optional.of(Type.BOOL);
-			case "Text" -> Optional.of(Type.TEXT);
-			default -> {
-				if (types.containsKey(identifier)) {
-					yield Optional.of(types.get(identifier));
-				}
-				if (parent == null) {
-					yield Optional.empty();
-				}
-				yield parent.getType(identifier);
-			}
-		};
+	public Optional<Declaration> getType(String identifier) {
+		return Optional.ofNullable(primitiveTypes.get(identifier))
+			.or(() -> Optional.ofNullable(types.get(identifier)))
+			.or(() -> (parent == null) ? Optional.empty() : parent.getType(identifier));
 	}
 
 	//////////////////////////////////////////////////////////////////////////////////////////////// Modules
 
-	private final Map<String, Type> modules = new HashMap<>();
+	private final Map<String, Declaration> modules = new HashMap<>();
 
-	public void declareModule(String identifier, Type type) {
-		declare(modules, identifier, type);
+	public void declareModule(String identifier, Declaration declaration) {
+		declare(modules, identifier, declaration);
 	}
 
 	public boolean isDeclaredModule(String identifier) {
@@ -274,7 +267,7 @@ public sealed class Environment {
 			|| (parent != null && parent.isDeclaredModule(identifier));
 	}
 
-	public Optional<Type> getModule(String identifier) {
+	public Optional<Declaration> getModule(String identifier) {
 		if (modules.containsKey(identifier)) {
 			return Optional.of(modules.get(identifier));
 		}

@@ -8,6 +8,7 @@ import org.eclipse.lsp4j.*;
 
 import it.simonvic.giovi.antlr.GioviExtendedParser.*;
 import it.simonvic.giovi.antlr.GioviExtendedParserBaseVisitor;
+import it.simonvic.giovi.lsp.Environment.Declaration;
 import it.simonvic.giovi.lsp.Environment.EnvironmentFunction;
 import it.simonvic.giovi.lsp.Environment.EnvironmentLoop;
 import it.simonvic.giovi.lsp.LSVisitResult.Default;
@@ -130,11 +131,12 @@ public class LSVisitor extends GioviExtendedParserBaseVisitor<LSVisitResult> {
 		String alias = ctx.alias.getText();
 		var expressionType = visitExpression(ctx.expression());
 		var env = getCurrentEnv();
+		var pos = LSPUtils.range(ctx.alias);
 		switch (expressionType) {
-			case TypeFunction t -> env.declareFunction(alias, t);
-			case TypeType t -> env.declareType(alias, t);
-			case TypeProduct t -> env.declareType(alias, t);
-			case TypeModule t -> env.declareModule(alias, t);
+			case TypeFunction t -> env.declare(alias, new Declaration(SymbolKind.Function, t, pos));
+			case TypeType t -> env.declare(alias, new Declaration(SymbolKind.Struct, t, pos));
+			case TypeProduct t -> env.declare(alias, new Declaration(SymbolKind.Struct, t, pos));
+			case TypeModule t -> env.declare(alias, new Declaration(SymbolKind.Module, t, pos));
 			// TODO: vars and consts
 			default -> addDiagErr(ctx.expression(), "Can't create an alias for " + expressionType);
 		}
@@ -199,14 +201,22 @@ public class LSVisitor extends GioviExtendedParserBaseVisitor<LSVisitResult> {
 		Type widestType = Type.VOID;
 		try {
 			widestType = widestOf(declaredType, initExpressionType);
+			var idCtx = ctx.identifier();
+			String identifier = idCtx.getText();
 			if (ctx.type() == null) {
-				addTypeInlayHint(widestType, ctx.identifier());
+				addTypeInlayHint(widestType, idCtx);
 			}
-			if (!getCurrentEnv().declareConstant(ctx.identifier().getText(), widestType)) {
-				addDiagErr(
-					ctx.identifier(),
-					"Constant already declared with name " + ctx.identifier().getText()
-				);
+			if (
+				!getCurrentEnv().declare(
+					identifier,
+					new Declaration(
+						SymbolKind.Constant,
+						widestType,
+						LSPUtils.range(idCtx)
+					)
+				)
+			) {
+				addDiagErr(idCtx, "Constant already declared with name " + identifier);
 			}
 		} catch (Exception e) {
 			addDiagErr(ctx, "Can't infer type.\n" + e.getMessage());
@@ -252,7 +262,16 @@ public class LSVisitor extends GioviExtendedParserBaseVisitor<LSVisitResult> {
 			constants,
 			functions
 		);
-		if (!getCurrentEnv().declareType(typename, type)) {
+		if (
+			!getCurrentEnv().declare(
+				typename,
+				new Declaration(
+					SymbolKind.Struct,
+					type,
+					LSPUtils.range(ctx.typename)
+				)
+			)
+		) {
 			addDiagErr(ctx, "Type already declared with name " + typename);
 		}
 		return type;
@@ -261,7 +280,8 @@ public class LSVisitor extends GioviExtendedParserBaseVisitor<LSVisitResult> {
 	@Override
 	public TypeFunction visitFunctionDeclaration(FunctionDeclarationContext ctx) {
 		var signatureCtx = ctx.functionSignature();
-		String identifier = signatureCtx.identifier().getText();
+		var idCtx = signatureCtx.identifier();
+		String identifier = idCtx.getText();
 		var anonSignatureCtx = signatureCtx.anonFunctionSignature();
 		var returnType = (anonSignatureCtx.returnType == null)
 			? Type.VOID
@@ -277,13 +297,31 @@ public class LSVisitor extends GioviExtendedParserBaseVisitor<LSVisitResult> {
 				: new Param(name, type);
 		}
 		var type = new TypeFunction(identifier, returnType, parameters);
-		if (!getCurrentEnv().declareFunction(identifier, type)) {
+		if (
+			!getCurrentEnv().declare(
+				identifier,
+				new Declaration(
+					SymbolKind.Function,
+					type,
+					LSPUtils.range(idCtx)
+				)
+			)
+		) {
 			addDiagErr(ctx, "Function already declared with name " + identifier);
 		}
 		enterFunctionScope(ctx.body);
 		for (int i = 0; i < parameters.length; i++) {
 			var param = parameters[i];
-			if (!getCurrentEnv().declareVariable(param.identifier(), param.type())) {
+			if (
+				!getCurrentEnv().declare(
+					param.identifier(),
+					new Declaration(
+						SymbolKind.Variable,
+						param.type(),
+						LSPUtils.range(paramsCtxs.get(i).name)
+					)
+				)
+			) {
 				addDiagErr(
 					paramsCtxs.get(i),
 					"Parameter already declared with name " + param.identifier()
@@ -341,7 +379,7 @@ public class LSVisitor extends GioviExtendedParserBaseVisitor<LSVisitResult> {
 			if (optModule.isEmpty()) {
 				addDiagErr(moduleIdentifierCtx, "Can't find module");
 			} else {
-				env = ((TypeModule) optModule.orElseThrow()).module();
+				env = ((TypeModule) optModule.orElseThrow().type()).module();
 			}
 		}
 		String typename = ctx.typename.getText();
@@ -350,7 +388,7 @@ public class LSVisitor extends GioviExtendedParserBaseVisitor<LSVisitResult> {
 			addDiagErr(ctx.typename, "Type not found " + typename);
 			return null;
 		}
-		return optScope.orElseThrow();
+		return optScope.orElseThrow().type();
 	}
 
 	@Override
@@ -405,11 +443,18 @@ public class LSVisitor extends GioviExtendedParserBaseVisitor<LSVisitResult> {
 		Type widestType;
 		try {
 			widestType = widestOf(declaredType, defaultExpressionType);
-			if (!getCurrentEnv().declareVariable(ctx.identifier().getText(), widestType)) {
-				addDiagErr(
-					ctx.identifier(),
-					"Variable already declared with name " + ctx.identifier().getText()
-				);
+			String name = ctx.name.getText();
+			if (
+				!getCurrentEnv().declare(
+					name,
+					new Declaration(
+						SymbolKind.Variable,
+						widestType,
+						LSPUtils.range(ctx.name)
+					)
+				)
+			) {
+				addDiagErr(ctx.identifier(), "Variable already declared with name " + name);
 			}
 		} catch (Exception e) {
 			addDiagErr(ctx, "Can't infer type.\n" + e.getMessage());
@@ -432,11 +477,18 @@ public class LSVisitor extends GioviExtendedParserBaseVisitor<LSVisitResult> {
 			if (ctx.type() == null) {
 				addTypeInlayHint(widestType, ctx.identifier());
 			}
-			if (!getCurrentEnv().declareVariable(ctx.identifier().getText(), widestType)) {
-				addDiagErr(
-					ctx.identifier(),
-					"Variable already declared with name " + ctx.identifier().getText()
-				);
+			String name = ctx.name.getText();
+			if (
+				!getCurrentEnv().declare(
+					name,
+					new Declaration(
+						SymbolKind.Variable,
+						widestType,
+						LSPUtils.range(ctx.name)
+					)
+				)
+			) {
+				addDiagErr(ctx.identifier(), "Variable already declared with name " + name);
 			}
 		} catch (Exception e) {
 			addDiagErr(ctx, "Can't infer type.\n" + e.getMessage());
@@ -654,6 +706,7 @@ public class LSVisitor extends GioviExtendedParserBaseVisitor<LSVisitResult> {
 		String identifier = ctx.getText();
 		return getCurrentEnv()
 			.lookup(identifier)
+			.map(Declaration::type)
 			.orElseGet(() -> {
 				diagnostics
 					.add(

@@ -17,6 +17,7 @@ import org.eclipse.lsp4j.services.TextDocumentService;
 
 import it.simonvic.giovi.antlr.GioviExtendedParser.IdentifierContext;
 import it.simonvic.giovi.antlr.GioviExtendedParser.StatementContext;
+import it.simonvic.giovi.lsp.Environment.Declaration;
 
 public class GioviTextDocumentService implements TextDocumentService {
 
@@ -106,7 +107,15 @@ public class GioviTextDocumentService implements TextDocumentService {
 				.getVisitor()
 				.getRootEnv()
 				.query(completionParams.getPosition())
-				.ifPresent(env -> completionItems.addAll(env.lookupAll().values()));
+				.map(env -> env.lookupAll())
+				.ifPresent(
+					decls -> decls.forEach((identifier, decl) -> {
+						var item = new CompletionItem();
+						item.setLabel(identifier);
+						item.setKind(LSPUtils.symbolToCompletionKind(decl.kind()));
+						completionItems.add(item);
+					})
+				);
 			return Either.forLeft(completionItems);
 		});
 	}
@@ -147,6 +156,7 @@ public class GioviTextDocumentService implements TextDocumentService {
 					.query(params.getPosition())
 					.ifPresent(
 						env -> env.lookup(idCtx.getText())
+							.map(Declaration::type)
 							.map(Object::toString)
 							.map(s -> new MarkedString("giovi", s))
 							.map(Either::<String, MarkedString>forRight)
@@ -212,7 +222,7 @@ public class GioviTextDocumentService implements TextDocumentService {
 			// 		.stream()
 			// 		.map(t -> "- " + t.getChannel() + ": '" + t.getText() + "'")
 			// 		.collect(Collectors.joining("\n"))));
-			hoverContents.add(Either.forLeft(sb.toString()));
+			// hoverContents.add(Either.forLeft(sb.toString()));
 
 			hover = new Hover();
 			hover.setContents(hoverContents);
@@ -281,9 +291,30 @@ public class GioviTextDocumentService implements TextDocumentService {
 	public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> definition(
 		DefinitionParams params
 	) {
+		var locations = new ArrayList<LocationLink>();
 		log.info("definition()");
+		var doc = documents.get(params.getTextDocument().getUri());
+		var ast = doc.getAST();
+		Optional<TerminalNode> matchedNodeOpt = LSPUtils.findLeaf(ast, params.getPosition());
+		if (matchedNodeOpt.isPresent()) {
+			var matchedNode = matchedNodeOpt.orElseThrow();
+			if (matchedNode.getParent() instanceof IdentifierContext idCtx) {
+				doc.getVisitor()
+					.getRootEnv()
+					.query(params.getPosition())
+					.flatMap(env -> env.lookup(idCtx.getText()))
+					.map(
+						decl -> new LocationLink(
+							params.getTextDocument().getUri(),
+							decl.range(),
+							decl.range()
+						)
+					)
+					.ifPresent(link -> locations.add(link));
+			}
+		}
 		return CompletableFutures.computeAsync(_ -> {
-			return Either.forLeft(List.of());
+			return Either.forRight(locations);
 		});
 	}
 

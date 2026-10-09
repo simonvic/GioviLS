@@ -2,10 +2,7 @@ package it.simonvic.giovi.lsp;
 
 import java.io.IOException;
 import java.net.URI;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import org.antlr.v4.runtime.CharStreams;
@@ -15,9 +12,7 @@ import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.SyntaxTree;
 import org.antlr.v4.runtime.tree.TerminalNode;
-import org.eclipse.lsp4j.Position;
-import org.eclipse.lsp4j.Range;
-import org.eclipse.lsp4j.TextDocumentIdentifier;
+import org.eclipse.lsp4j.*;
 
 import it.simonvic.giovi.antlr.GioviExtendedLexer;
 import it.simonvic.giovi.antlr.GioviExtendedParser;
@@ -75,6 +70,18 @@ public class LSPUtils {
 		return (x.getLine() != y.getLine())
 			? x.getLine() - y.getLine()
 			: x.getCharacter() - y.getCharacter();
+	}
+
+	/**
+	 * Get start position
+	 * @param ctx
+	 * @return
+	 */
+	public static Position startPositionOf(IdentifierContext ctx) {
+		return new Position(
+			ctx.getStart().getLine() - 1,
+			ctx.getStart().getCharPositionInLine()
+		);
 	}
 
 	/**
@@ -233,7 +240,8 @@ public class LSPUtils {
 	 * @return parser
 	 * @throws IOException
 	 */
-	public static GioviExtendedParser parserFrom(TextDocumentIdentifier textDocument) throws IOException {
+	public static GioviExtendedParser parserFrom(TextDocumentIdentifier textDocument)
+		throws IOException {
 		URI uri = URI.create(textDocument.getUri());
 		var lexer = new GioviExtendedLexer(CharStreams.fromFileName(uri.getPath()));
 		return new GioviExtendedParser(new CommonTokenStream(lexer));
@@ -257,6 +265,39 @@ public class LSPUtils {
 	public static GioviExtendedParser parserFrom(String content) {
 		var lexer = new GioviExtendedLexer(CharStreams.fromString(content));
 		return new GioviExtendedParser(new CommonTokenStream(lexer));
+	}
+
+	public static final Map<SymbolKind, CompletionItemKind> SYMBOL_TO_COMPLETION_KIND = Map
+		.ofEntries(
+			Map.entry(SymbolKind.File, /*          => */ CompletionItemKind.File),
+			Map.entry(SymbolKind.Module, /*        => */ CompletionItemKind.Module),
+			// Map.entry(SymbolKind.Namespace,  /* => */ CompletionItemKind.xxx),
+			// Map.entry(SymbolKind.Package,    /* => */ CompletionItemKind.xxx),
+			Map.entry(SymbolKind.Class, /*         => */ CompletionItemKind.Class),
+			Map.entry(SymbolKind.Method, /*        => */ CompletionItemKind.Method),
+			Map.entry(SymbolKind.Property, /*      => */ CompletionItemKind.Property),
+			Map.entry(SymbolKind.Field, /*         => */ CompletionItemKind.Field),
+			Map.entry(SymbolKind.Constructor, /*   => */ CompletionItemKind.Constructor),
+			Map.entry(SymbolKind.Enum, /*          => */ CompletionItemKind.Enum),
+			Map.entry(SymbolKind.Interface, /*     => */ CompletionItemKind.Interface),
+			Map.entry(SymbolKind.Function, /*      => */ CompletionItemKind.Function),
+			Map.entry(SymbolKind.Variable, /*      => */ CompletionItemKind.Variable),
+			Map.entry(SymbolKind.Constant, /*      => */ CompletionItemKind.Constant),
+			Map.entry(SymbolKind.String, /*        => */ CompletionItemKind.Value),
+			Map.entry(SymbolKind.Number, /*        => */ CompletionItemKind.Value),
+			Map.entry(SymbolKind.Boolean, /*       => */ CompletionItemKind.Value),
+			Map.entry(SymbolKind.Array, /*         => */ CompletionItemKind.Value),
+			Map.entry(SymbolKind.Object, /*        => */ CompletionItemKind.Value),
+			Map.entry(SymbolKind.Null, /*          => */ CompletionItemKind.Value),
+			Map.entry(SymbolKind.EnumMember, /*    => */ CompletionItemKind.EnumMember),
+			Map.entry(SymbolKind.Struct, /*        => */ CompletionItemKind.Struct),
+			Map.entry(SymbolKind.Event, /*         => */ CompletionItemKind.Event),
+			Map.entry(SymbolKind.Operator, /*      => */ CompletionItemKind.Operator),
+			Map.entry(SymbolKind.TypeParameter, /* => */ CompletionItemKind.TypeParameter)
+		);
+
+	public static CompletionItemKind symbolToCompletionKind(SymbolKind kind) {
+		return SYMBOL_TO_COMPLETION_KIND.getOrDefault(kind, CompletionItemKind.Text);
 	}
 
 }

@@ -2,6 +2,7 @@ package it.simonvic.giovi.lsp;
 
 import java.util.Optional;
 
+import it.simonvic.giovi.lsp.Environment.Declaration;
 import it.simonvic.giovi.lsp.LSVisitResult.Type;
 
 public abstract class TestsLSVisitor extends LSVisitor {
@@ -11,7 +12,7 @@ public abstract class TestsLSVisitor extends LSVisitor {
 	}
 
 	public Optional<Type> lookup(String identifier) {
-		return getCurrentEnv().lookup(identifier);
+		return getCurrentEnv().lookup(identifier).map(Declaration::type);
 	}
 
 }
