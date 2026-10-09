@@ -331,7 +331,11 @@ public class LSVisitor extends GioviExtendedParserBaseVisitor<LSVisitResult> {
 		visitBlock(ctx.body);
 		exitScope();
 		return type;
+	}
 
+	@Override
+	public TypeFunction visitAnonFunction(AnonFunctionContext ctx) {
+		return new TypeFunction("", Type.VOID);
 	}
 
 	@Override
@@ -430,6 +434,12 @@ public class LSVisitor extends GioviExtendedParserBaseVisitor<LSVisitResult> {
 	}
 
 	@Override
+	public TypeFunction visitTypeFunctionRef(TypeFunctionRefContext ctx) {
+		// TODO: ...
+		return new TypeFunction("", visitType(ctx.anonFunctionSignature().returnType));
+	}
+
+	@Override
 	public Type visitDefaultDefinition(DefaultDefinitionContext ctx) {
 		return visitExpression(ctx.expression());
 	}
@@ -524,6 +534,66 @@ public class LSVisitor extends GioviExtendedParserBaseVisitor<LSVisitResult> {
 
 	private Type visitExpression(ExpressionContext ctx) {
 		return (Type) visit(ctx);
+	}
+
+	@Override
+	public Type visitExpressionParenthesized(ExpressionParenthesizedContext ctx) {
+		return visitExpression(ctx.expression());
+	}
+
+	@Override
+	public Type visitExpressionCast(ExpressionCastContext ctx) {
+		// TODO: check for casting
+		return visitType(ctx.type());
+	}
+
+	@Override
+	public TypeBool visitExpressionTypeCheck(ExpressionTypeCheckContext ctx) {
+		return Type.BOOL;
+	}
+
+	@Override
+	public TypeBool visitExpressionPatternMatching(ExpressionPatternMatchingContext ctx) {
+		// TODO: pattern matching
+		return Type.BOOL;
+	}
+
+	@Override
+	public Type visitExpressionDot(ExpressionDotContext ctx) {
+		// TODO: ...
+		return Type.VOID;
+	}
+
+	@Override
+	public TypeFunction visitExpressionDotRef(ExpressionDotRefContext ctx) {
+		// TODO: ...
+		return new TypeFunction("", Type.VOID);
+	}
+
+	@Override
+	public TypeFunction visitExpressionRef(ExpressionRefContext ctx) {
+		// TODO: ...
+		return new TypeFunction("", Type.VOID);
+	}
+
+	@Override
+	public TypeType visitExpressionTypeCreation(ExpressionTypeCreationContext ctx) {
+		return new TypeType(visitType(ctx.type()));
+	}
+
+	@Override
+	public TypeInt visitExpressionBitwiseBool(ExpressionBitwiseBoolContext ctx) {
+		return Type.INT;
+	}
+
+	@Override
+	public TypeInt visitExpressionBitwiseNot(ExpressionBitwiseNotContext ctx) {
+		return Type.INT;
+	}
+
+	@Override
+	public TypeInt visitExpressionBitwiseShift(ExpressionBitwiseShiftContext ctx) {
+		return Type.INT;
 	}
 
 	@Override

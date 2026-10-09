@@ -12,6 +12,19 @@ public sealed interface LSVisitResult {
 	public static final Nothing NOTHING = new Nothing();
 	public static final Default DEFAULT = new Default();
 
+
+	//@formatter:off
+	default LSVisitResult positive() { return NOTHING; }
+	default LSVisitResult negative() { return NOTHING; }
+	default LSVisitResult plus(LSVisitResult rhs) { return NOTHING; }
+	default LSVisitResult minus(LSVisitResult rhs) { return NOTHING; }
+	default LSVisitResult multiply(LSVisitResult rhs) { return NOTHING; }
+	default LSVisitResult divide(LSVisitResult rhs) { return NOTHING; }
+	default LSVisitResult modulo(LSVisitResult rhs) { return NOTHING; }
+	default LSVisitResult power(LSVisitResult rhs) { return NOTHING; }
+	default LSVisitResult dot(LSVisitResult rhs) { return NOTHING; }
+	//@formatter:on
+
 	public static record Nothing() implements LSVisitResult {
 	}
 
@@ -81,11 +94,11 @@ public sealed interface LSVisitResult {
 
 		}
 
-		public static record TypeType() implements Type {
+		public static record TypeType(Type describedType) implements Type {
 
 			@Override
 			public String toString() {
-				return "Type";
+				return "Type{" + describedType + "}";
 			}
 
 		}
