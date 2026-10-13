@@ -297,6 +297,25 @@ public class LSVisitor extends GioviExtendedParserBaseVisitor<LSVisitResult> {
 
 	@Override
 	public Type visitConstantDeclaration(ConstantDeclarationContext ctx) {
+		var idCtx = ctx.identifier();
+		String identifier = idCtx.getText();
+		var widestType = doVisitConstantDeclaration(ctx);
+		if (
+			!getCurrentEnv().declare(
+				identifier,
+				new Declaration(
+					SymbolKind.Constant,
+					widestType,
+					LSPUtils.range(idCtx)
+				)
+			)
+		) {
+			addDiagErr(idCtx, "Constant already declared with name " + identifier);
+		}
+		return widestType;
+	}
+
+	private Type doVisitConstantDeclaration(ConstantDeclarationContext ctx) {
 		Type declaredType = (ctx.type() == null)
 			? Type.VOID
 			: visitType(ctx.type());
@@ -305,21 +324,8 @@ public class LSVisitor extends GioviExtendedParserBaseVisitor<LSVisitResult> {
 		try {
 			widestType = widestOf(declaredType, initExpressionType);
 			var idCtx = ctx.identifier();
-			String identifier = idCtx.getText();
 			if (ctx.type() == null) {
 				addTypeInlayHint(widestType, idCtx);
-			}
-			if (
-				!getCurrentEnv().declare(
-					identifier,
-					new Declaration(
-						SymbolKind.Constant,
-						widestType,
-						LSPUtils.range(idCtx)
-					)
-				)
-			) {
-				addDiagErr(idCtx, "Constant already declared with name " + identifier);
 			}
 		} catch (Exception e) {
 			addDiagErr(ctx, "Can't infer type.\n" + e.getMessage());
@@ -347,16 +353,14 @@ public class LSVisitor extends GioviExtendedParserBaseVisitor<LSVisitResult> {
 		var constants = new RecordField[(constsCtxs == null) ? 0 : constsCtxs.size()];
 		for (int i = 0; i < constants.length; i++) {
 			var constCtx = constsCtxs.get(i);
-			constants[i] = new RecordField(
-				constCtx.identifier().getText(),
-				visitType(constCtx.type())
-			);
+			var constType = doVisitConstantDeclaration(constCtx);
+			constants[i] = new RecordField(constCtx.identifier().getText(), constType);
 		}
 
 		var funcsCtx = bodyCtx.functionDeclaration();
 		var functions = new TypeFunction[(funcsCtx == null) ? 0 : funcsCtx.size()];
 		for (int i = 0; i < functions.length; i++) {
-			functions[i] = visitFunctionDeclaration(funcsCtx.get(i));
+			functions[i] = doVisitFunctionDeclaration(funcsCtx.get(i));
 		}
 
 		var type = new TypeStruct(
@@ -382,6 +386,25 @@ public class LSVisitor extends GioviExtendedParserBaseVisitor<LSVisitResult> {
 
 	@Override
 	public TypeFunction visitFunctionDeclaration(FunctionDeclarationContext ctx) {
+		var type = doVisitFunctionDeclaration(ctx);
+		var idCtx = ctx.functionSignature().identifier();
+		var identifier = idCtx.getText();
+		if (
+			!getCurrentEnv().declare(
+				identifier,
+				new Declaration(
+					SymbolKind.Function,
+					type,
+					LSPUtils.range(idCtx)
+				)
+			)
+		) {
+			addDiagErr(ctx, "Function already declared with name " + identifier);
+		}
+		return type;
+	}
+
+	private TypeFunction doVisitFunctionDeclaration(FunctionDeclarationContext ctx) {
 		var signatureCtx = ctx.functionSignature();
 		var idCtx = signatureCtx.identifier();
 		String identifier = idCtx.getText();
@@ -400,18 +423,6 @@ public class LSVisitor extends GioviExtendedParserBaseVisitor<LSVisitResult> {
 				: new Param(name, type);
 		}
 		var type = new TypeFunction(identifier, returnType, parameters);
-		if (
-			!getCurrentEnv().declare(
-				identifier,
-				new Declaration(
-					SymbolKind.Function,
-					type,
-					LSPUtils.range(idCtx)
-				)
-			)
-		) {
-			addDiagErr(ctx, "Function already declared with name " + identifier);
-		}
 		enterFunctionScope(ctx.body);
 		for (int i = 0; i < parameters.length; i++) {
 			var param = parameters[i];
