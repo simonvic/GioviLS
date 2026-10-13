@@ -615,7 +615,7 @@ public sealed interface LSVisitResult {
 				};
 			}
 
-			private static Optional<RecordField> findByName(
+			public static Optional<RecordField> findByName(
 				String identifier,
 				RecordField... fields
 			) {
@@ -628,7 +628,7 @@ public sealed interface LSVisitResult {
 				return Optional.empty();
 			}
 
-			private static Optional<TypeFunction> findByName(
+			public static Optional<TypeFunction> findByName(
 				String identifier,
 				TypeFunction... functions
 			) {
