@@ -1,5 +1,10 @@
 package it.simonvic.giovi.lsp;
 
+import static it.simonvic.giovi.lsp.LSVisitResult.Type.TypeProduct.findByName;
+
+import java.util.Optional;
+
+import it.simonvic.giovi.lsp.Environment.Declaration;
 import it.simonvic.giovi.lsp.LSVisitResult.Type.TypeCollection.TypeList;
 import it.simonvic.giovi.lsp.LSVisitResult.Type.TypePrimitive.TypeBool;
 import it.simonvic.giovi.lsp.LSVisitResult.Type.TypePrimitive.TypeNumber.TypeInt;
@@ -602,6 +607,40 @@ public sealed interface LSVisitResult {
 
 		public static sealed interface TypeProduct extends Type {
 
+			@Override
+			default LSVisitResult dot(LSVisitResult rhs) {
+				return switch (rhs) {
+					case ReservedIdentifier(var i) when i == "_count" -> Type.INT;
+					default -> NOTHING;
+				};
+			}
+
+			private static Optional<RecordField> findByName(
+				String identifier,
+				RecordField... fields
+			) {
+				// lmao
+				for (var field : fields) {
+					if (field.identifier.equals(identifier)) {
+						return Optional.of(field);
+					}
+				}
+				return Optional.empty();
+			}
+
+			private static Optional<TypeFunction> findByName(
+				String identifier,
+				TypeFunction... functions
+			) {
+				for (var function : functions) {
+					if (function.identifier.equals(identifier)) {
+						return Optional.of(function);
+					}
+				}
+				return Optional.empty();
+			}
+
+
 			public static record TypeTuple(Type... fields) implements TypeProduct {
 
 				@Override
@@ -614,6 +653,16 @@ public sealed interface LSVisitResult {
 					}
 					sb.append(">");
 					return sb.toString();
+				}
+
+				@Override
+				public LSVisitResult dot(LSVisitResult rhs) {
+					return switch (rhs) {
+						// TODO: we need actual values here
+						case TypeRange(TypeNatural _),TypeRange(TypeInt _) -> new TypeTuple();
+						case TypeInt _ -> Type.ANY;
+						default -> TypeProduct.super.dot(rhs);
+					};
 				}
 
 			}
@@ -640,6 +689,21 @@ public sealed interface LSVisitResult {
 					sb.append(">");
 					return sb.toString();
 				}
+
+				@Override
+				public LSVisitResult dot(LSVisitResult rhs) {
+					return switch (rhs) {
+						// TODO: we need actual values here
+						case TypeRange(TypeNatural _),TypeRange(TypeInt _) -> new TypeRecord();
+						case TypeInt _ -> Type.ANY;
+						case MemberKey(var i)
+							-> findByName(i, this.fields)
+								.<LSVisitResult>map(RecordField::type)
+								.orElse(NOTHING);
+						default -> TypeProduct.super.dot(rhs);
+					};
+				}
+
 
 			}
 
@@ -678,6 +742,28 @@ public sealed interface LSVisitResult {
 					}
 					sb.append(">");
 					return sb.toString();
+				}
+
+				@Override
+				public LSVisitResult dot(LSVisitResult rhs) {
+					return switch (rhs) {
+						// TODO: we need actual values here
+						case TypeRange(TypeNatural _),TypeRange(TypeInt _) -> new TypeRecord();
+						case TypeInt _ -> Type.ANY;
+						case MemberKey(var i) -> {
+							Optional<LSVisitResult> member = findByName(i, this.fields)
+								.or(() -> findByName(i, this.constants))
+								.map(RecordField::type);
+							if (member.isPresent()) {
+								yield member.orElseThrow();
+							}
+							var optFunction = findByName(i, this.functions);
+							yield (optFunction.isPresent())
+								? optFunction.orElseThrow()
+								: NOTHING;
+						}
+						default -> TypeProduct.super.dot(rhs);
+					};
 				}
 
 			}
