@@ -34,6 +34,18 @@ public sealed class Environment {
 
 	}
 
+	public static final class EnvironmentModule extends Environment {
+
+		public EnvironmentModule(Environment parent, Range range) {
+			super(parent, range);
+		}
+
+		public EnvironmentModule(Range range) {
+			super(range);
+		}
+
+	}
+
 	public static record Declaration(
 		SymbolKind kind,
 		Type type,

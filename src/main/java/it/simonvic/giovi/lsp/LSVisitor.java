@@ -9,6 +9,7 @@ import java.util.List;
 
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.Token;
+import org.antlr.v4.runtime.tree.ParseTree;
 import org.eclipse.lsp4j.*;
 
 import it.simonvic.giovi.antlr.GioviExtendedLexer;
@@ -17,10 +18,8 @@ import it.simonvic.giovi.antlr.GioviExtendedParserBaseVisitor;
 import it.simonvic.giovi.lsp.Environment.Declaration;
 import it.simonvic.giovi.lsp.Environment.EnvironmentFunction;
 import it.simonvic.giovi.lsp.Environment.EnvironmentLoop;
-import it.simonvic.giovi.lsp.LSVisitResult.Default;
-import it.simonvic.giovi.lsp.LSVisitResult.Nothing;
-import it.simonvic.giovi.lsp.LSVisitResult.ReservedIdentifier;
-import it.simonvic.giovi.lsp.LSVisitResult.Type;
+import it.simonvic.giovi.lsp.Environment.EnvironmentModule;
+import it.simonvic.giovi.lsp.LSVisitResult.*;
 import it.simonvic.giovi.lsp.LSVisitResult.Type.*;
 import it.simonvic.giovi.lsp.LSVisitResult.Type.TypeCollection.TypeList;
 import it.simonvic.giovi.lsp.LSVisitResult.Type.TypeCollection.TypeMap;
@@ -37,6 +36,63 @@ import it.simonvic.giovi.lsp.LSVisitResult.Type.TypeProduct.TypeTuple;
 
 public class LSVisitor extends GioviExtendedParserBaseVisitor<LSVisitResult> {
 
+	// this is so dumb that I'm actually proud I came up with it
+	public static final String NATIVE_MODULES_STUBS = """
+		module giovi {
+			module util {
+				module Random {
+					integer() => Int {}
+					real() => Real {}
+					bool() => Bool {}
+					text() => Text {}
+				}
+				module Math {
+					const E Real <- 0r;
+					const PI Real <- 0r;
+					const TAU Real <- 0r;
+					floor(x Real) => Real {}
+					ceil(x Real) => Real {}
+					abs(x Real) => Real {}
+				}
+				module Color {
+					struct Rgb <
+						r Int default 255,
+						g Int default 255,
+						b Int default 255
+					>
+					Rgb + struct Rgba <
+						a Int default 255
+					>
+					const WHITE Int <- 0xFFFFFF;
+					rgb(r Int, g Int, b Int) => Rgb {}
+					rgba(r Int, g Int, b Int, a Int) => Rgba {}
+				}
+				module Ansi {
+					const ESC Text <- ""
+					moveTo(line Int, column Int) => Text {}
+					moveToColumn(x Int) => Text {}
+					moveUp(x Int) => Text {}
+					moveDown(x Int) => Text {}
+					moveRight(x Int) => Text {}
+					moveLeft(x Int) => Text {}
+					erase(mode Int) => Text {}
+					sized(numerator Int, denominator Int, text Text) => Text {}
+					fg(color giovi.util.Color.Rgb) => Text {}
+					bg(color giovi.util.Color.Rgb) => Text {}
+					styleReset() => Text {}
+					bold() => Text {}
+					dim() => Text {}
+					italic() => Text {}
+					underline() => Text {}
+					blink() => Text {}
+					inverse() => Text {}
+					hidden() => Text {}
+					strike() => Text {}
+				}
+			}
+		}
+		""";
+
 	private final List<Diagnostic> diagnostics = new ArrayList<>();
 	private final List<InlayHint> inlayHints = new ArrayList<>();
 
@@ -46,6 +102,7 @@ public class LSVisitor extends GioviExtendedParserBaseVisitor<LSVisitResult> {
 	public LSVisitor(Range range) {
 		this.rootEnv = new Environment(range);
 		this.env = this.rootEnv;
+		this.visit(LSPUtils.parserFrom(NATIVE_MODULES_STUBS).begin());
 	}
 
 	public List<Diagnostic> getDiagnostics() {
@@ -80,6 +137,10 @@ public class LSVisitor extends GioviExtendedParserBaseVisitor<LSVisitResult> {
 		setCurrentEnv(new EnvironmentLoop(getCurrentEnv(), LSPUtils.range(ctx)));
 	}
 
+	private void enterModuleScope(ParserRuleContext ctx) {
+		setCurrentEnv(new EnvironmentModule(getCurrentEnv(), LSPUtils.range(ctx)));
+	}
+
 	private void exitScope() {
 		setCurrentEnv(getCurrentEnv().parent());
 	}
@@ -111,6 +172,27 @@ public class LSVisitor extends GioviExtendedParserBaseVisitor<LSVisitResult> {
 	}
 
 	@Override
+	public LSVisitResult visitModuleDeclaration(ModuleDeclarationContext ctx) {
+		enterModuleScope(ctx.body);
+		String identifier = ctx.identifier().getText();
+		if (
+			!getCurrentEnv().parent().declare(
+				identifier,
+				new Declaration(
+					SymbolKind.Module,
+					new TypeModule(getCurrentEnv()),
+					LSPUtils.range(ctx)
+				)
+			)
+		) {
+			addDiagErr(ctx, "Module already declared with name " + identifier);
+		}
+		visitBlock(ctx.body);
+		exitScope();
+		return NOTHING;
+	}
+
+	@Override
 	public Nothing visitImportStatement(ImportStatementContext ctx) {
 		for (var importEntryCtx : ctx.importEntry()) {
 			visit(importEntryCtx);
@@ -120,12 +202,30 @@ public class LSVisitor extends GioviExtendedParserBaseVisitor<LSVisitResult> {
 
 	@Override
 	public Nothing visitImportEntry(ImportEntryContext ctx) {
-		// TODO: ...
-		// if (ctx.alias != null) {
-		// 	getCurrentEnv().declareModule(
-		// 		ctx.identifier().getText(), new TypeModule(new Environment(this.env))
-		// 	);
-		// }
+		TypeModule t = new TypeModule(this.getCurrentEnv());
+		for (var uriCtx : ctx.importURI()) {
+			var nextEnv = t.module().getModule(uriCtx.getText());
+			if (nextEnv.isEmpty()) {
+				addDiagErr(uriCtx, "Can't find module " + uriCtx.getText());
+				return NOTHING;
+			}
+			t = (TypeModule) nextEnv.orElseThrow().type();
+		}
+		if (ctx.alias != null) {
+			String alias = ctx.alias.getText();
+			if (
+				!getCurrentEnv().declare(
+					alias,
+					new Declaration(
+						SymbolKind.Module,
+						t,
+						LSPUtils.range(ctx.alias)
+					)
+				)
+			) {
+				addDiagErr(ctx.alias, "Module already declared with name " + alias);
+			}
+		}
 		return NOTHING;
 	}
 
@@ -584,9 +684,22 @@ public class LSVisitor extends GioviExtendedParserBaseVisitor<LSVisitResult> {
 	@Override
 	public Type visitExpressionDot(ExpressionDotContext ctx) {
 		var lhs = visitExpression(ctx.expression());
+		if (lhs == null) {
+			addDiagErr(ctx, "Error evaluating dot expression");
+			return Type.VOID;
+		}
 		// TODO: properly
-		var rhs = visit(ctx.getChild(2));
+		var rhsCtx = ctx.getChild(2);
+		var rhs = switch (rhsCtx) {
+			case IdentifierContext idCtx -> new MemberKey(idCtx.getText());
+			case InvocationContext invocationCtx
+				-> new MemberKey(invocationCtx.identifier().getText());
+			case ParseTree t -> visit(t);
+		};
 		var result = lhs.dot(rhs);
+		if (rhsCtx instanceof InvocationContext && result instanceof TypeFunction func) {
+			return func.returnType();
+		}
 		return switch (result) {
 			case Type t -> t;
 			default -> {

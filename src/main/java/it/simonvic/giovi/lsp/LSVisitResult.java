@@ -29,6 +29,9 @@ public sealed interface LSVisitResult {
 	public static record Nothing() implements LSVisitResult {
 	}
 
+	public static record MemberKey(String identifier) implements LSVisitResult {
+	}
+
 	public static record Default() implements LSVisitResult {
 	}
 
@@ -160,6 +163,17 @@ public sealed interface LSVisitResult {
 			@Override
 			public String toString() {
 				return "Module";
+			}
+
+			@Override
+			public LSVisitResult dot(LSVisitResult rhs) {
+				return switch (rhs) {
+					case MemberKey(var i)
+						-> module.lookup(i)
+							.map(Declaration::type)
+							.orElse(Type.VOID);
+					default -> NOTHING;
+				};
 			}
 
 		}
