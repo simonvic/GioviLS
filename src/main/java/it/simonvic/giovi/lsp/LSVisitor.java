@@ -89,6 +89,9 @@ public class LSVisitor extends GioviExtendedParserBaseVisitor<LSVisitResult> {
 					hidden() => Text {}
 					strike() => Text {}
 				}
+				module Thread {
+					sleep(forMS: ms Int) {}
+				}
 			}
 		}
 		""";
