@@ -51,8 +51,8 @@ return {
 ```
 
 And then, you can start it with `:lsp start giovils`; alternatively you can add
-`vim.lsp.enable({"giovi_ls"})` in your `init.lua` to make it start
-automatically for every giovi file.
+`vim.lsp.enable({"giovils"})` in your `init.lua` to make it start automatically
+for every giovi file.
 
 If neovim doesn't recognize the `giovi` filetype, add the following to your
 `init.lua`
