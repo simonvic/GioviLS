@@ -60,3 +60,15 @@ If neovim doesn't recognize the `giovi` filetype, add the following to your
 ```lua
 vim.filetype.add({ extension = { giovi = "giovi" } })
 ```
+
+## Developement
+
+To aid developement, `giovils` allows to be started with the `--proxy` argument
+allowing you to debug and hotswap/hotreload the server with your IDE.
+
+1. With your IDE, launch the server via `GioviLSSocket.java`; it will listen
+   for connections on `localhost:8069`
+2. With your client, launch the server with the `--proxy` argument; it will
+   connect to `localhost:8069` and relay all protocol comunications to the
+   actual server.
+
