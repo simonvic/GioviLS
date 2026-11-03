@@ -160,14 +160,15 @@
 					</arguments>
 					<outputDirectory>${project.basedir}/src/main/java/it/simonvic/giovi/antlr</outputDirectory>
 				</configuration>
-				<!-- <executions> -->
-				<!-- 	<execution> -->
-				<!-- 		<id>antlr</id> -->
-				<!-- 		<goals> -->
-				<!-- 			<goal>antlr4</goal> -->
-				<!-- 		</goals> -->
-				<!-- 	</execution> -->
-				<!-- </executions> -->
+				<!-- Disable antlr4 goal to avoid stale files on every compilation -->
+				<executions>
+					<execution>
+						<id>antlr</id>
+						<goals>
+							<goal>antlr4</goal>
+						</goals>
+					</execution>
+				</executions>
 			</plugin>
 
 			<plugin>
